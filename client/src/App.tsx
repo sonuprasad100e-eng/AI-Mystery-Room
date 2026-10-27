@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import {
-  ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Clapperboard,
-  Clock3, FileText, Fingerprint, Image as ImageIcon, Lightbulb,
-  LoaderCircle, MessageCircle, Search, Shield, Skull, Sparkles, Target, X,
+  AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Clapperboard,
+  Clock3, Cpu, FileText, Fingerprint, Image as ImageIcon, Lightbulb,
+  LoaderCircle, MessageCircle, MessageSquareQuote, Pause, Play, RefreshCw, RotateCcw, Search, Send, Shield, Skull, Sparkles, Target, X,
 } from 'lucide-react';
 import type { MysteryCase, Suspect } from './types/mystery';
 
@@ -11,6 +11,12 @@ type Page = 'home' | 'room' | 'archive';
 type Summary = {
   id: string; title: string; caseNumber: string; crimeType: string;
   difficulty: string; status: string; createdAt?: string;
+};
+export type ChatMessage = {
+  id: string;
+  role: 'user' | 'suspect';
+  text: string;
+  timestamp: string;
 };
 type EvidenceRecord =
   | MysteryCase['evidence']['whatsappThreads'][number]
@@ -38,7 +44,9 @@ export default function App() {
   const [difficulty, setDifficulty] = useState('medium');
   const [game, setGame] = useState<MysteryCase | null>(null);
   const [page, setPage] = useState<Page>('home');
-  const [tab, setTab] = useState<'chats' | 'photos' | 'cctv'>('chats');
+  const [tab, setTab] = useState<'chats' | 'photos' | 'cctv' | 'interrogate'>('chats');
+  const [interrogatedSuspectId, setInterrogatedSuspectId] = useState<string>('');
+  const [conversations, setConversations] = useState<Record<string, ChatMessage[]>>({});
   const [thread, setThread] = useState(0);
   const [photo, setPhoto] = useState(0);
   const [hotspot, setHotspot] = useState<number | null>(null);
@@ -83,6 +91,19 @@ export default function App() {
     setAccused('');
     setHints([]);
     setError('');
+    setConversations({});
+    setInterrogatedSuspectId(nextCase.suspects[0]?.suspectId || '');
+  };
+
+  const appendToNotes = (statement: string) => {
+    setNotes((current) => (current ? `${current}\n\n${statement}` : statement));
+  };
+
+  const addInterrogationMessage = (suspectId: string, message: ChatMessage) => {
+    setConversations((current) => ({
+      ...current,
+      [suspectId]: [...(current[suspectId] || []), message],
+    }));
   };
 
   const loadCase = async (id: string) => {
@@ -184,6 +205,37 @@ export default function App() {
     setError(reason instanceof Error ? reason.message : 'Could not open the demo case.');
   });
 
+  const updatePhotoUrl = (evidenceId: string, newUrl: string) => {
+    setGame((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        evidence: {
+          ...current.evidence,
+          photos: current.evidence.photos.map((p) =>
+            p.evidenceId === evidenceId ? { ...p, imageUrl: newUrl } : p
+          ),
+        },
+      };
+    });
+  };
+
+  const updateVideoUrl = (evidenceId: string, newUrl: string) => {
+    setGame((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        evidence: {
+          ...current.evidence,
+          cctvRecordings: current.evidence.cctvRecordings.map((r) =>
+            r.evidenceId === evidenceId ? { ...r, videoUrl: newUrl } : r
+          ),
+        },
+      };
+    });
+  };
+
+
   return (
     <div className="app-shell">
       <Header page={page} onHome={() => { setPage('home'); setError(''); }} onArchive={() => { setPage('archive'); setError(''); }} />
@@ -212,9 +264,18 @@ export default function App() {
           notes={notes} setNotes={setNotes} pinned={pinned} accused={accused}
           setAccused={setAccused} verdict={verdict} hints={hints} loading={loading}
           error={error} evidence={allEvidence} titleForId={titleForId}
+          interrogatedSuspectId={interrogatedSuspectId}
+          setInterrogatedSuspectId={setInterrogatedSuspectId}
+          conversations={conversations}
+          onAddInterrogationMessage={addInterrogationMessage}
+          onAddToNotes={appendToNotes}
           onTogglePin={togglePin} onHint={requestHint} onAccuse={() => setModal(true)}
-          onClearHints={() => setHints([])} onBack={() => { setPage('archive'); setError(''); }}
+          onClearHints={() => setHints([])} onRetry={() => setVerdict(null)}
+          onBack={() => { setPage('archive'); setError(''); }}
+          onUpdatePhotoUrl={updatePhotoUrl}
+          onUpdateVideoUrl={updateVideoUrl}
         />
+
       )}
 
       {modal && game && (
@@ -256,6 +317,24 @@ function HomePage({
     'Blackout at the Louvre Vault', 'Poisoned Espresso at a Tech IPO',
     'Disappearance on the Orient Express', 'Sabotage at a Deep-Sea Station',
   ];
+
+  const genStages = [
+    'Synthesizing crime scene & scenario facts...',
+    'Forging suspect profiles, motives & alibis...',
+    'Extracting communication logs & deleted messages...',
+    'Analyzing CCTV timestamps & anomaly markers...',
+    'Verifying logical consistency & sealing casefile...',
+  ];
+  const [stageIdx, setStageIdx] = useState(0);
+
+  useEffect(() => {
+    if (!loading) { setStageIdx(0); return; }
+    const timer = setInterval(() => {
+      setStageIdx((prev) => (prev + 1) % genStages.length);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [loading]);
+
   return (
     <main className="home-page page-width">
       <section className="home-hero">
@@ -302,6 +381,15 @@ function HomePage({
               {loading ? <><LoaderCircle className="spin" size={17} /> Building the case…</> : <>Generate mystery <ArrowRight size={16} /></>}
             </button>
           </div>
+          {loading && (
+            <div className="generation-progress-card">
+              <LoaderCircle className="spin" size={18} />
+              <div>
+                <b>AI Forensic Engine Active</b>
+                <span>{genStages[stageIdx]}</span>
+              </div>
+            </div>
+          )}
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </form>
 
@@ -366,20 +454,32 @@ function ArchivePage({ cases, query, setQuery, loading, error, onOpen, onNew }: 
 function InvestigationPage({
   game, tab, setTab, thread, setThread, photo, setPhoto, hotspot, setHotspot,
   camera, setCamera, frame, setFrame, notes, setNotes, pinned, accused, setAccused,
-  verdict, hints, loading, error, evidence, titleForId, onTogglePin, onHint, onClearHints, onAccuse, onBack,
+  verdict, hints, loading, error, evidence, titleForId,
+  interrogatedSuspectId, setInterrogatedSuspectId, conversations,
+  onAddInterrogationMessage, onAddToNotes,
+  onTogglePin, onHint, onClearHints, onRetry, onAccuse, onBack, onUpdatePhotoUrl, onUpdateVideoUrl,
 }: {
-  game: MysteryCase; tab: 'chats' | 'photos' | 'cctv'; setTab: (tab: 'chats' | 'photos' | 'cctv') => void;
+  game: MysteryCase; tab: 'chats' | 'photos' | 'cctv' | 'interrogate'; setTab: (tab: 'chats' | 'photos' | 'cctv' | 'interrogate') => void;
   thread: number; setThread: (index: number) => void; photo: number; setPhoto: (index: number) => void;
   hotspot: number | null; setHotspot: (index: number | null) => void; camera: number; setCamera: (index: number) => void;
-  frame: number; setFrame: (index: number) => void; notes: string; setNotes: (value: string) => void;
+  frame: number; setFrame: Dispatch<SetStateAction<number>>; notes: string; setNotes: (value: string) => void;
   pinned: string[]; accused: string; setAccused: (id: string) => void; verdict: any; hints: string[];
   loading: boolean; error: string; evidence: EvidenceRecord[]; titleForId: (id: string) => string;
-  onTogglePin: (id: string) => void; onHint: () => void; onClearHints: () => void; onAccuse: () => void; onBack: () => void;
+  interrogatedSuspectId: string; setInterrogatedSuspectId: (id: string) => void;
+  conversations: Record<string, ChatMessage[]>;
+  onAddInterrogationMessage: (suspectId: string, message: ChatMessage) => void;
+  onAddToNotes: (statement: string) => void;
+  onTogglePin: (id: string) => void; onHint: () => void; onClearHints: () => void;
+  onRetry: () => void; onAccuse: () => void; onBack: () => void;
+  onUpdatePhotoUrl?: (evidenceId: string, newUrl: string) => void;
+  onUpdateVideoUrl?: (evidenceId: string, newUrl: string) => void;
 }) {
+
   const tabs = [
     { id: 'chats' as const, label: 'Messages', Icon: MessageCircle, count: game.evidence.whatsappThreads.length },
     { id: 'photos' as const, label: 'Forensics', Icon: ImageIcon, count: game.evidence.photos.length },
     { id: 'cctv' as const, label: 'CCTV', Icon: Clapperboard, count: game.evidence.cctvRecordings.length },
+    { id: 'interrogate' as const, label: 'Interrogation', Icon: MessageSquareQuote, count: game.suspects.length },
   ];
   const currentCamera = game.evidence.cctvRecordings[camera];
   const currentFrame = currentCamera?.frames[frame];
@@ -401,7 +501,7 @@ function InvestigationPage({
         <button onClick={onClearHints} aria-label="Dismiss hints"><X size={15} /></button>
       </div>}
 
-      {verdict && <VerdictPanel verdict={verdict} game={game} titleForId={titleForId} />}
+      {verdict && <VerdictPanel verdict={verdict} game={game} titleForId={titleForId} onRetry={onRetry} onArchive={onBack} />}
 
       <div className="investigation-grid">
         <aside className="case-sidebar">
@@ -410,7 +510,8 @@ function InvestigationPage({
             <div className="section-heading"><div><span className="section-index">02</span><h2>Persons of interest</h2></div><span className="item-count">{game.suspects.length} DOSSIERS</span></div>
             <div className="suspect-list">{game.suspects.map((suspect, index) => (
               <SuspectCard key={suspect.suspectId} suspect={suspect} number={index + 1}
-                selected={accused === suspect.suspectId} onSelect={() => setAccused(suspect.suspectId)} />
+                selected={accused === suspect.suspectId} onSelect={() => setAccused(suspect.suspectId)}
+                onInterrogate={() => { setTab('interrogate'); setInterrogatedSuspectId(suspect.suspectId); }} />
             ))}</div>
           </section>
           <section className="notes-card panel">
@@ -434,8 +535,20 @@ function InvestigationPage({
           </div>
           <div className="evidence-content">
             {tab === 'chats' && <MessagesEvidence threads={game.evidence.whatsappThreads} thread={thread} setThread={setThread} pinned={pinned} onTogglePin={onTogglePin} />}
-            {tab === 'photos' && <PhotoEvidence photos={game.evidence.photos} photo={photo} setPhoto={setPhoto} hotspot={hotspot} setHotspot={setHotspot} pinned={pinned} onTogglePin={onTogglePin} />}
-            {tab === 'cctv' && <CctvEvidence recordings={game.evidence.cctvRecordings} camera={camera} setCamera={setCamera} frame={frame} setFrame={setFrame} currentCamera={currentCamera} currentFrame={currentFrame} pinned={pinned} onTogglePin={onTogglePin} />}
+            {tab === 'photos' && <PhotoEvidence caseId={game._id} photos={game.evidence.photos} photo={photo} setPhoto={setPhoto} hotspot={hotspot} setHotspot={setHotspot} pinned={pinned} onTogglePin={onTogglePin} onUpdatePhotoUrl={onUpdatePhotoUrl} />}
+            {tab === 'cctv' && <CctvEvidence caseId={game._id} recordings={game.evidence.cctvRecordings} camera={camera} setCamera={setCamera} frame={frame} setFrame={setFrame} currentCamera={currentCamera} currentFrame={currentFrame} pinned={pinned} onTogglePin={onTogglePin} onUpdateVideoUrl={onUpdateVideoUrl} />}
+            {tab === 'interrogate' && (
+
+              <InterrogationEvidence
+                suspects={game.suspects}
+                selectedSuspectId={interrogatedSuspectId || game.suspects[0]?.suspectId || ''}
+                onSelectSuspect={setInterrogatedSuspectId}
+                conversations={conversations}
+                onAddMessage={onAddInterrogationMessage}
+                caseId={game._id}
+                onAddToNotes={onAddToNotes}
+              />
+            )}
           </div>
         </section>
       </div>
@@ -458,7 +571,9 @@ function BriefingCard({ game }: { game: MysteryCase }) {
   );
 }
 
-function SuspectCard({ suspect, number, selected, onSelect }: { suspect: Suspect; number: number; selected: boolean; onSelect: () => void }) {
+function SuspectCard({ suspect, number, selected, onSelect, onInterrogate }: {
+  suspect: Suspect; number: number; selected: boolean; onSelect: () => void; onInterrogate?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <article className={`suspect-card ${selected ? 'suspect-selected' : ''}`}>
@@ -475,9 +590,16 @@ function SuspectCard({ suspect, number, selected, onSelect }: { suspect: Suspect
         <div className="suspect-fact"><b>POSSIBLE MOTIVE</b><p>{suspect.motive}</p></div>
         {suspect.quirks.length > 0 && <div className="quirks">{suspect.quirks.map((quirk) => <span key={quirk}>{quirk}</span>)}</div>}
         <blockquote>“{suspect.interrogationQuote}”</blockquote>
-        <button className={selected ? 'select-suspect selected' : 'select-suspect'} onClick={onSelect}>
-          {selected ? <><Check size={14} /> Selected for accusation</> : <><Target size={14} /> Mark as prime suspect</>}
-        </button>
+        <div className="suspect-card-actions">
+          {onInterrogate && (
+            <button className="interrogate-suspect-btn" onClick={onInterrogate}>
+              <MessageSquareQuote size={13} /> Question this person
+            </button>
+          )}
+          <button className={selected ? 'select-suspect selected' : 'select-suspect'} onClick={onSelect}>
+            {selected ? <><Check size={14} /> Selected for accusation</> : <><Target size={14} /> Mark as prime suspect</>}
+          </button>
+        </div>
       </div>}
     </article>
   );
@@ -511,135 +633,764 @@ function MessagesEvidence({ threads, thread, setThread, pinned, onTogglePin }: {
   </div>;
 }
 
-function PhotoEvidence({ photos, photo, setPhoto, hotspot, setHotspot, pinned, onTogglePin }: {
-  photos: MysteryCase['evidence']['photos']; photo: number; setPhoto: (index: number) => void;
-  hotspot: number | null; setHotspot: (index: number | null) => void; pinned: string[]; onTogglePin: (id: string) => void;
+function PhotoEvidence({
+  caseId, photos, photo, setPhoto, hotspot, setHotspot, pinned, onTogglePin, onUpdatePhotoUrl,
+}: {
+  caseId?: string;
+  photos: MysteryCase['evidence']['photos'];
+  photo: number;
+  setPhoto: (index: number) => void;
+  hotspot: number | null;
+  setHotspot: (index: number | null) => void;
+  pinned: string[];
+  onTogglePin: (id: string) => void;
+  onUpdatePhotoUrl?: (evidenceId: string, newUrl: string) => void;
 }) {
   const current = photos[photo];
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
   if (!photos.length) return <EmptyEvidence title="No forensic photographs" detail="No photo evidence was attached to this case." />;
-  return <div className="forensic-view">
-    <div className="forensic-list"><div className="thread-rail-heading"><span>PHOTO LOG</span><span>{String(photos.length).padStart(2, '0')}</span></div>
-      {photos.map((item, index) => <button className={index === photo ? 'forensic-option selected' : 'forensic-option'} key={item.evidenceId} onClick={() => { setPhoto(index); setHotspot(null); }}>
-        <ImageWithFallback src={item.imageUrl} alt="" label={item.title} variant="thumbnail" />
-        <span><b>{item.title}</b><small>{item.locationFound}</small></span><ArrowRight size={13} />
-      </button>)}
-    </div>
-    {current && <div className="forensic-report">
-      <div className="forensic-image-wrap"><ImageWithFallback src={current.imageUrl} alt={current.title} label={current.title} variant="forensic-image" />
-        <div className="photo-stamp">EXHIBIT {String(photo + 1).padStart(2, '0')}</div>
-        {current.hotspots.map((item, index) => <button key={`${item.label}-${index}`} className={hotspot === index ? 'hotspot active' : 'hotspot'} style={{ left: `${item.xPercent}%`, top: `${item.yPercent}%` }} onClick={() => setHotspot(hotspot === index ? null : index)} aria-label={`Inspect clue: ${item.label}`} aria-pressed={hotspot === index}>{String(index + 1).padStart(2, '0')}</button>)}
+
+  const isSvg = Boolean(current?.imageUrl && (current.imageUrl.startsWith('data:image/svg') || current.imageUrl.endsWith('.svg')));
+  const isAi = Boolean(current?.imageUrl && (current.imageUrl.startsWith('/api/media') || current.imageUrl.startsWith('http') || current.imageUrl.startsWith('data:image/jpeg') || current.imageUrl.startsWith('data:image/png')) && !isSvg);
+  const isMissing = !current?.imageUrl;
+
+  const handleGenerate = async (evidenceId: string) => {
+    if (!caseId) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch(`${API}/cases/${caseId}/evidence/${evidenceId}/generate-image`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate evidence photograph.');
+      }
+      if (data.imageUrl && onUpdatePhotoUrl) {
+        onUpdatePhotoUrl(evidenceId, data.imageUrl);
+      }
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Failed to generate image.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="forensic-view">
+      <div className="forensic-list">
+        <div className="thread-rail-heading"><span>PHOTO LOG</span><span>{String(photos.length).padStart(2, '0')}</span></div>
+        {photos.map((item, index) => {
+          const itemSvg = Boolean(item.imageUrl && (item.imageUrl.startsWith('data:image/svg') || item.imageUrl.endsWith('.svg')));
+          const itemAi = Boolean(item.imageUrl && !itemSvg);
+          return (
+            <button
+              className={index === photo ? 'forensic-option selected' : 'forensic-option'}
+              key={item.evidenceId}
+              onClick={() => { setPhoto(index); setHotspot(null); setGenError(null); }}
+            >
+              <ImageWithFallback src={item.imageUrl} alt="" label={item.title} variant="thumbnail" />
+              <span>
+                <b>{item.title}</b>
+                <small>{itemAi ? 'AI Photo' : itemSvg ? 'Schematic' : 'No image'} · {item.locationFound}</small>
+              </span>
+              <ArrowRight size={13} />
+            </button>
+          );
+        })}
       </div>
-      <div className="report-caption"><div><span className="record-type">FORENSIC EXHIBIT · {current.timestamp}</span><h3>{current.title}</h3><p className="report-location">Recovered at {current.locationFound}</p></div>
-        <PinAction id={current.evidenceId} pinned={pinned} onTogglePin={onTogglePin} /></div>
-      <div className="forensic-note"><span className="note-mark"><Fingerprint size={15} /></span><p>{hotspot !== null && current.hotspots[hotspot] ? <><b>{current.hotspots[hotspot].label}.</b> {current.hotspots[hotspot].detail}</> : current.forensicNote}</p></div>
-      {current.hotspots.length > 0 && <div className="clue-index"><span>OBSERVATIONS</span>{current.hotspots.map((item, index) => <button key={`${item.label}-${index}`} className={hotspot === index ? 'clue-chip active' : 'clue-chip'} onClick={() => setHotspot(hotspot === index ? null : index)}><i>{String(index + 1).padStart(2, '0')}</i>{item.label}</button>)}</div>}
-      {photos.length > 1 && <div className="forensic-pagination"><button onClick={() => { setPhoto((photo + photos.length - 1) % photos.length); setHotspot(null); }}><ArrowLeft size={14} /> Previous exhibit</button><span>{String(photo + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}</span><button onClick={() => { setPhoto((photo + 1) % photos.length); setHotspot(null); }}>Next exhibit <ArrowRight size={14} /></button></div>}
-    </div>}
-  </div>;
+      {current && (
+        <div className="forensic-report">
+          <div className="forensic-image-wrap">
+            <ImageWithFallback src={current.imageUrl} alt={current.title} label={current.title} variant="forensic-image" />
+            <div className="photo-stamp">EXHIBIT {String(photo + 1).padStart(2, '0')}</div>
+            <div className="photo-media-type-badge">
+              {isAi && <span className="media-tag ai-tag"><Sparkles size={11} /> AI SCENE PHOTOGRAPH</span>}
+              {isSvg && <span className="media-tag schematic-tag"><Cpu size={11} /> FORENSIC SCHEMATIC // NOT A REAL PHOTOGRAPH</span>}
+              {isMissing && <span className="media-tag missing-tag"><AlertTriangle size={11} /> NO IMAGE ATTACHED</span>}
+            </div>
+            {generating && (
+              <div className="generating-overlay" role="status">
+                <LoaderCircle className="spin" size={30} />
+                <b>SYNTHESIZING CRIME-SCENE PHOTOGRAPH</b>
+                <span>Requesting AI image provider & saving to local evidence archive…</span>
+                <small>Takes 5–15 seconds via free provider</small>
+              </div>
+            )}
+            {current.hotspots.map((item, index) => (
+              <button
+                key={`${item.label}-${index}`}
+                className={hotspot === index ? 'hotspot active' : 'hotspot'}
+                style={{ left: `${item.xPercent}%`, top: `${item.yPercent}%` }}
+                onClick={() => setHotspot(hotspot === index ? null : index)}
+                aria-label={`Inspect clue: ${item.label}`}
+                aria-pressed={hotspot === index}
+              >
+                {String(index + 1).padStart(2, '0')}
+              </button>
+            ))}
+          </div>
+
+          <div className="forensic-action-bar">
+            <div className="forensic-status-info">
+              {isAi && <span><Sparkles size={13} className="text-gold" /> AI photograph generated from case evidence prompt. Numbered markers highlight recovered clues.</span>}
+              {isSvg && <span><Cpu size={13} className="text-blue" /> Procedural vector schematic fallback. Click to synthesize a realistic AI photograph using the free provider.</span>}
+              {isMissing && <span><AlertTriangle size={13} className="text-red" /> No image attached. Click to synthesize a realistic AI photograph.</span>}
+            </div>
+            {caseId && (
+              <button
+                className={`forensic-gen-btn ${isAi ? 'secondary' : 'primary'}`}
+                disabled={generating}
+                onClick={() => handleGenerate(current.evidenceId)}
+                aria-label={isAi ? 'Regenerate photograph' : 'Generate AI photograph'}
+              >
+                {generating ? (
+                  <><LoaderCircle className="spin" size={13} /> Generating…</>
+                ) : isAi ? (
+                  <><RefreshCw size={13} /> Regenerate photo</>
+                ) : (
+                  <><Sparkles size={13} /> Generate AI photo</>
+                )}
+              </button>
+            )}
+          </div>
+
+          {genError && (
+            <div className="forensic-error-alert" role="alert">
+              <AlertTriangle size={14} />
+              <span>{genError}</span>
+              <button onClick={() => handleGenerate(current.evidenceId)}><RefreshCw size={12} /> Retry generation</button>
+            </div>
+          )}
+
+          <div className="report-caption">
+            <div>
+              <span className="record-type">FORENSIC EXHIBIT · {current.timestamp}</span>
+              <h3>{current.title}</h3>
+              <p className="report-location">Recovered at {current.locationFound}</p>
+            </div>
+            <PinAction id={current.evidenceId} pinned={pinned} onTogglePin={onTogglePin} />
+          </div>
+
+          <div className="forensic-note">
+            <span className="note-mark"><Fingerprint size={15} /></span>
+            <p>
+              {hotspot !== null && current.hotspots[hotspot] ? (
+                <><b>{current.hotspots[hotspot].label}.</b> {current.hotspots[hotspot].detail}</>
+              ) : (
+                current.forensicNote
+              )}
+            </p>
+          </div>
+
+          {current.hotspots.length > 0 && (
+            <div className="clue-index">
+              <span>OBSERVATIONS</span>
+              {current.hotspots.map((item, index) => (
+                <button
+                  key={`${item.label}-${index}`}
+                  className={hotspot === index ? 'clue-chip active' : 'clue-chip'}
+                  onClick={() => setHotspot(hotspot === index ? null : index)}
+                >
+                  <i>{String(index + 1).padStart(2, '0')}</i>{item.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {photos.length > 1 && (
+            <div className="forensic-pagination">
+              <button onClick={() => { setPhoto((photo + photos.length - 1) % photos.length); setHotspot(null); setGenError(null); }}>
+                <ArrowLeft size={14} /> Previous exhibit
+              </button>
+              <span>{String(photo + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}</span>
+              <button onClick={() => { setPhoto((photo + 1) % photos.length); setHotspot(null); setGenError(null); }}>
+                Next exhibit <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function CctvEvidence({ recordings, camera, setCamera, frame, setFrame, currentCamera, currentFrame, pinned, onTogglePin }: {
-  recordings: MysteryCase['evidence']['cctvRecordings']; camera: number; setCamera: (index: number) => void;
-  frame: number; setFrame: (index: number) => void; currentCamera: MysteryCase['evidence']['cctvRecordings'][number] | undefined;
+function CctvEvidence({
+  caseId,
+  recordings,
+  camera,
+  setCamera,
+  frame,
+  setFrame,
+  currentCamera,
+  currentFrame,
+  pinned,
+  onTogglePin,
+  onUpdateVideoUrl,
+}: {
+  caseId?: string;
+  recordings: MysteryCase['evidence']['cctvRecordings'];
+  camera: number;
+  setCamera: (index: number) => void;
+  frame: number;
+  setFrame: Dispatch<SetStateAction<number>>;
+  currentCamera: MysteryCase['evidence']['cctvRecordings'][number] | undefined;
   currentFrame: MysteryCase['evidence']['cctvRecordings'][number]['frames'][number] | undefined;
-  pinned: string[]; onTogglePin: (id: string) => void;
+  pinned: string[];
+  onTogglePin: (id: string) => void;
+  onUpdateVideoUrl?: (evidenceId: string, newUrl: string) => void;
 }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const handleGenerateVideo = async (force = false) => {
+    if (!caseId || !currentCamera || generating) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}/cctv/${encodeURIComponent(currentCamera.evidenceId)}/generate-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.videoUrl) {
+        throw new Error(data.error || 'Failed to synthesize CCTV footage.');
+      }
+      onUpdateVideoUrl?.(currentCamera.evidenceId, data.videoUrl);
+      setIsPlaying(false);
+    } catch (err: any) {
+      setGenError(err.message || 'Video synthesis failed. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPlaying || !currentCamera || currentCamera.frames.length <= 1) return;
+    const timer = setInterval(() => {
+      setFrame((prev) => (prev + 1) % currentCamera.frames.length);
+    }, 1400);
+    return () => clearInterval(timer);
+  }, [isPlaying, currentCamera, setFrame]);
+
   if (!recordings.length) return <EmptyEvidence title="No camera records" detail="No CCTV recordings were attached to this case." />;
   return <div className="cctv-evidence">
     <div className="cctv-toolbar"><div><span className="record-type">CAMERA FEED</span><b>{currentCamera?.location}</b></div>
-      <div className="camera-options">{recordings.map((item, index) => <button key={item.evidenceId} className={camera === index ? 'camera-option active' : 'camera-option'} onClick={() => { setCamera(index); setFrame(0); }}>{item.cameraId}</button>)}</div>
+      <div className="camera-options">{recordings.map((item, index) => <button key={item.evidenceId} className={camera === index ? 'camera-option active' : 'camera-option'} onClick={() => { setIsPlaying(false); setCamera(index); setFrame(0); setGenError(null); }}>{item.cameraId}</button>)}</div>
     </div>
     {currentCamera && currentFrame ? <>
       <div className="cctv-screen">{currentCamera.videoUrl
         ? <VideoWithFallback src={currentCamera.videoUrl} label={currentCamera.cameraId} />
         : <ImageWithFallback src={currentFrame.snapshotSvgOrUrl} alt={currentFrame.visualDescription} label={currentFrame.cameraName} variant="camera-image" />}
-        <div className="cctv-overlay"><span>{currentFrame.cameraName}</span><span>{currentFrame.timestamp}</span></div>
-        {!currentCamera.videoUrl && <span className="rec-label static-label">STATIC FRAME</span>}
+        {!currentCamera.videoUrl && (
+          <div className="cctv-overlay"><span>{currentFrame.cameraName}</span><span>{currentFrame.timestamp}</span></div>
+        )}
+        {!currentCamera.videoUrl && <span className="rec-label static-label">SIMULATED CCTV FRAME</span>}
         {currentCamera.videoUrl && <span className="rec-label"><i /> VIDEO FILE</span>}
         {!currentCamera.videoUrl && <div className="camera-scan" />}
       </div>
-      {!currentCamera.videoUrl && <p className="media-notice">No playable video file is attached. Review the timestamped frame records below.</p>}
+
+      <div className="cctv-action-bar">
+        <div className="cctv-status-info">
+          {currentCamera.videoUrl ? (
+            <span className="text-emerald"><Check size={13} /> CCTV footage rendered (H.264 MP4). Use player controls to inspect.</span>
+          ) : (
+            <span><Clapperboard size={13} className="text-amber" /> Simulated frame sequence. Synthesize a 6-second CCTV video with slow zoom, timestamps & scanlines.</span>
+          )}
+        </div>
+        {caseId && (
+          <button
+            className={`cctv-gen-btn ${currentCamera.videoUrl ? 'secondary' : 'primary'}`}
+            disabled={generating}
+            onClick={() => handleGenerateVideo(Boolean(currentCamera.videoUrl))}
+            aria-label={currentCamera.videoUrl ? 'Regenerate CCTV video' : 'Generate CCTV video'}
+          >
+            {generating ? (
+              <><LoaderCircle className="spin" size={13} /> Synthesizing video…</>
+            ) : currentCamera.videoUrl ? (
+              <><RefreshCw size={13} /> Regenerate CCTV video</>
+            ) : (
+              <><Clapperboard size={13} /> Generate CCTV video</>
+            )}
+          </button>
+        )}
+      </div>
+
+      {genError && (
+        <div className="forensic-error-alert" role="alert">
+          <AlertTriangle size={14} />
+          <span>{genError}</span>
+          <button onClick={() => handleGenerateVideo(true)}><RefreshCw size={12} /> Retry</button>
+        </div>
+      )}
+
       <div className="cctv-details"><div className="cctv-description"><span className={currentFrame.anomalyFlag ? 'anomaly-label flagged' : 'anomaly-label'}>{currentFrame.anomalyFlag ? 'ANOMALY MARKED' : 'FRAME RECORD'}</span><p>{currentFrame.visualDescription}</p>
         <div className="entity-list">{currentFrame.detectedEntities.map((entity) => <span key={entity}>{entity}</span>)}</div></div>
         <PinAction id={currentCamera.evidenceId} pinned={pinned} onTogglePin={onTogglePin} />
       </div>
       <div className="camera-footage-info"><span>{currentCamera.timeRange}</span><span>{currentCamera.technicalStatus}</span></div>
       <div className="frame-timeline"><div className="frame-timeline-head"><span>FOOTAGE INDEX</span><span>{String(currentCamera.frames.length).padStart(2, '0')} FRAMES</span></div>
-        <div className="frame-track">{currentCamera.frames.map((item, index) => <button key={item.frameId} className={frame === index ? 'frame-point active' : 'frame-point'} onClick={() => setFrame(index)} aria-label={`Show frame ${index + 1} at ${item.timestamp}`}><i className={item.anomalyFlag ? 'point-anomaly' : ''} /><span>{item.timestamp}</span></button>)}</div>
+        <div className="frame-track">{currentCamera.frames.map((item, index) => <button key={item.frameId} className={frame === index ? 'frame-point active' : 'frame-point'} onClick={() => { setIsPlaying(false); setFrame(index); }} aria-label={`Show frame ${index + 1} at ${item.timestamp}`}><i className={item.anomalyFlag ? 'point-anomaly' : ''} /><span>{item.timestamp}</span></button>)}</div>
       </div>
-      <div className="frame-controls"><button onClick={() => setFrame(Math.max(0, frame - 1))} disabled={frame === 0}><ArrowLeft size={14} /> Previous frame</button><span>{String(frame + 1).padStart(2, '0')} / {String(currentCamera.frames.length).padStart(2, '0')}</span><button onClick={() => setFrame((frame + 1) % currentCamera.frames.length)}>Next frame <ArrowRight size={14} /></button></div>
+      <div className="frame-controls">
+        <button onClick={() => { setIsPlaying(false); setFrame(Math.max(0, frame - 1)); }} disabled={frame === 0}>
+          <ArrowLeft size={14} /> Previous frame
+        </button>
+        <button
+          className={`loop-toggle-btn ${isPlaying ? 'active' : ''}`}
+          onClick={() => setIsPlaying(!isPlaying)}
+          aria-label={isPlaying ? 'Pause frame loop' : 'Play frame loop'}
+        >
+          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          <span>{isPlaying ? 'Pause loop' : 'Auto loop'}</span>
+        </button>
+        <span>{String(frame + 1).padStart(2, '0')} / {String(currentCamera.frames.length).padStart(2, '0')}</span>
+        <button onClick={() => { setIsPlaying(false); setFrame((frame + 1) % currentCamera.frames.length); }}>
+          Next frame <ArrowRight size={14} />
+        </button>
+      </div>
     </> : <EmptyEvidence title="No frames in this recording" detail="Choose another camera or return to the case file." />}
   </div>;
 }
 
-function VerdictPanel({ verdict, game, titleForId }: { verdict: any; game: MysteryCase; titleForId: (id: string) => string }) {
-  const culprit = game.suspects.find((suspect) => suspect.suspectId === verdict.solution.culpritSuspectId);
-  return <section className={`verdict-panel ${verdict.correct ? 'verdict-correct' : 'verdict-wrong'}`}>
-    <div className="verdict-emblem">{verdict.correct ? <Check size={22} /> : <X size={22} />}</div>
-    <div className="verdict-main"><span className="verdict-kicker">{verdict.correct ? 'CASE RESOLVED' : 'ACCUSATION REJECTED'} · INVESTIGATION SCORE {verdict.score}/100</span>
-      <h2>{verdict.correct ? 'The evidence holds together.' : 'One piece of the story is still missing.'}</h2>
-      <p><b>{culprit?.name}</b> — {verdict.solution.motiveSummary}</p>
-      <div className="verdict-details"><div><span>THE CONTRADICTION</span><p>{verdict.solution.alibiContradiction}</p></div><div><span>FULL RECONSTRUCTION</span><p>{verdict.solution.fullReconstruction}</p></div></div>
-      <div className="verdict-evidence"><span>KEY EXHIBITS</span>{verdict.solution.keyEvidenceIds.map((id: string) => <span className="verdict-exhibit" key={id}>{titleForId(id)}</span>)}</div>
+
+function InterrogationEvidence({
+  suspects,
+  selectedSuspectId,
+  onSelectSuspect,
+  conversations,
+  onAddMessage,
+  caseId,
+  onAddToNotes,
+}: {
+  suspects: Suspect[];
+  selectedSuspectId: string;
+  onSelectSuspect: (id: string) => void;
+  conversations: Record<string, ChatMessage[]>;
+  onAddMessage: (suspectId: string, message: ChatMessage) => void;
+  caseId: string;
+  onAddToNotes: (statement: string) => void;
+}) {
+  const activeSuspect = suspects.find((s) => s.suspectId === selectedSuspectId) || suspects[0];
+  const messages = activeSuspect ? (conversations[activeSuspect.suspectId] || []) : [];
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  const handleSend = async (qToSend?: string) => {
+    const text = (qToSend || question).trim();
+    if (!text || loading || !activeSuspect) return;
+
+    setError(null);
+    setLastQuestion(null);
+    setLoading(true);
+    if (!qToSend) setQuestion('');
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      text,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    onAddMessage(activeSuspect.suspectId, userMsg);
+
+    const historyPayload = messages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.text,
+    }));
+
+    try {
+      const res = await fetch(`${API}/cases/${caseId}/suspects/${activeSuspect.suspectId}/interrogate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: text, history: historyPayload }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'The suspect could not be reached.');
+      }
+
+      const suspectMsg: ChatMessage = {
+        id: `s-${Date.now()}`,
+        role: 'suspect',
+        text: data.answer,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      onAddMessage(activeSuspect.suspectId, suspectMsg);
+    } catch (err: any) {
+      setError(err?.message || 'Could not send question. Please try asking again.');
+      setLastQuestion(text);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const quickQuestions = [
+    'Where were you during the incident?',
+    'Did you see or hear anyone suspicious?',
+    'What was your relationship with the victim?',
+    'Can anyone confirm your alibi?',
+  ];
+
+  return (
+    <div className="interrogation-view">
+      <aside className="suspect-rail">
+        <div className="thread-rail-heading">
+          <span>SUSPECT LIST</span>
+          <span>{String(suspects.length).padStart(2, '0')} PERSONS</span>
+        </div>
+        {suspects.map((suspect) => {
+          const count = (conversations[suspect.suspectId] || []).filter((m) => m.role === 'suspect').length;
+          const isSelected = suspect.suspectId === activeSuspect?.suspectId;
+          return (
+            <button
+              key={suspect.suspectId}
+              className={isSelected ? 'suspect-rail-item selected' : 'suspect-rail-item'}
+              onClick={() => {
+                onSelectSuspect(suspect.suspectId);
+                setError(null);
+                setLastQuestion(null);
+              }}
+            >
+              <Portrait src={suspect.avatarUrl} name={suspect.name} />
+              <span className="suspect-rail-info">
+                <b>{suspect.name}</b>
+                <small>{suspect.occupation}</small>
+                {count > 0 && <span className="interrogation-count">{count} {count === 1 ? 'reply' : 'replies'}</span>}
+              </span>
+              <ArrowRight size={13} className="thread-arrow" />
+            </button>
+          );
+        })}
+      </aside>
+
+      {activeSuspect ? (
+        <div className="interrogation-chamber">
+          <header className="chamber-header">
+            <div className="chamber-profile">
+              <Portrait src={activeSuspect.avatarUrl} name={activeSuspect.name} />
+              <div>
+                <span className="record-type">FORMAL QUESTIONING</span>
+                <h3>{activeSuspect.name}</h3>
+                <p>{activeSuspect.occupation} · {activeSuspect.relationshipToVictim}</p>
+              </div>
+            </div>
+            <div className="chamber-alibi-pill">
+              <b>Stated Alibi:</b> {activeSuspect.alibi}
+            </div>
+          </header>
+
+          <div className="interrogation-stream" ref={chatScrollRef} aria-label="Interrogation conversation">
+            <div className="interrogation-opening-quote">
+              <span className="quote-mark">“</span>
+              <p>{activeSuspect.interrogationQuote}</p>
+              <small>Initial statement recorded in preliminary case file</small>
+            </div>
+
+            {messages.map((msg) => (
+              <div key={msg.id} className={`interrogation-bubble-wrap ${msg.role === 'user' ? 'user-turn' : 'suspect-turn'}`}>
+                {msg.role === 'suspect' && (
+                  <div className="bubble-speaker">
+                    <Portrait src={activeSuspect.avatarUrl} name={activeSuspect.name} />
+                  </div>
+                )}
+                <div className="interrogation-bubble">
+                  <div className="bubble-header">
+                    <b>{msg.role === 'user' ? 'Investigator' : activeSuspect.name}</b>
+                    <time>{msg.timestamp}</time>
+                  </div>
+                  <p>{msg.text}</p>
+                  {msg.role === 'suspect' && (
+                    <div className="bubble-actions">
+                      <button
+                        className="save-statement-action"
+                        onClick={() => {
+                          onAddToNotes(`[Statement from ${activeSuspect.name}]: "${msg.text}"`);
+                          setSavedId(msg.id);
+                          setTimeout(() => setSavedId(null), 2500);
+                        }}
+                      >
+                        <FileText size={12} />
+                        {savedId === msg.id ? 'Saved to notes!' : 'Save statement'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="interrogation-bubble-wrap suspect-turn">
+                <div className="bubble-speaker">
+                  <Portrait src={activeSuspect.avatarUrl} name={activeSuspect.name} />
+                </div>
+                <div className="interrogation-bubble typing-bubble">
+                  <div className="bubble-header">
+                    <b>{activeSuspect.name}</b>
+                    <span>Thinking…</span>
+                  </div>
+                  <div className="typing-dots">
+                    <span /><span /><span />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="interrogation-error-bar" role="alert">
+              <AlertTriangle size={15} />
+              <span>{error}</span>
+              {lastQuestion && (
+                <button onClick={() => handleSend(lastQuestion)}>
+                  <RefreshCw size={12} /> Retry question
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="chamber-input-area">
+            <div className="quick-inquiries">
+              <span>COMMON QUESTIONS</span>
+              {quickQuestions.map((q) => (
+                <button
+                  key={q}
+                  className="quick-question-chip"
+                  disabled={loading}
+                  onClick={() => handleSend(q)}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            <form
+              className="chamber-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+            >
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value.slice(0, 300))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={`Ask ${activeSuspect.name} a question in simple English...`}
+                aria-label={`Ask ${activeSuspect.name} a question`}
+                rows={2}
+                disabled={loading}
+              />
+              <div className="chamber-form-footer">
+                <span className="char-count">{question.length}/300</span>
+                <button
+                  type="submit"
+                  className="send-question-btn"
+                  disabled={loading || !question.trim()}
+                  aria-label="Send question"
+                >
+                  {loading ? <LoaderCircle className="spin" size={13} /> : <Send size={13} />}
+                  <span>Ask suspect</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <EmptyEvidence title="No suspect selected" detail="Select a suspect on the left to begin questioning." />
+      )}
     </div>
-  </section>;
+  );
 }
 
-function AccusationDialog({ suspects, evidence, pinned, accused, setAccused, reasoning, setReasoning, titleForId, loading, error, onTogglePin, onClose, onSubmit }: {
+function VerdictPanel({
+  verdict, game, titleForId, onRetry, onArchive,
+}: {
+  verdict: any; game: MysteryCase; titleForId: (id: string) => string;
+  onRetry: () => void; onArchive: () => void;
+}) {
+  const culprit = game.suspects.find((suspect) => suspect.suspectId === verdict.solution.culpritSuspectId);
+  return (
+    <section className={`verdict-panel ${verdict.correct ? 'verdict-correct' : 'verdict-wrong'}`}>
+      <div className="verdict-emblem">{verdict.correct ? <Check size={22} /> : <X size={22} />}</div>
+      <div className="verdict-main">
+        <span className="verdict-kicker">{verdict.correct ? 'CASE RESOLVED' : 'ACCUSATION REJECTED'} · INVESTIGATION SCORE {verdict.score}/100</span>
+        <h2>{verdict.correct ? 'The evidence holds together.' : 'One piece of the story is still missing.'}</h2>
+        <p><b>{culprit?.name}</b> — {verdict.solution.motiveSummary}</p>
+        <div className="verdict-details">
+          <div><span>THE CONTRADICTION</span><p>{verdict.solution.alibiContradiction}</p></div>
+          <div><span>FULL RECONSTRUCTION</span><p>{verdict.solution.fullReconstruction}</p></div>
+        </div>
+        <div className="verdict-evidence">
+          <span>KEY EXHIBITS</span>
+          {verdict.solution.keyEvidenceIds.map((id: string) => (
+            <span className="verdict-exhibit" key={id}>{titleForId(id)}</span>
+          ))}
+        </div>
+        <div className="verdict-actions">
+          {!verdict.correct && (
+            <button className="primary-button retry-btn" onClick={onRetry}>
+              <RotateCcw size={15} /> Re-examine clues & Try again
+            </button>
+          )}
+          <button className="secondary-button" onClick={onArchive}>
+            <FileText size={15} /> Return to Case Archive
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AccusationDialog({
+  suspects, evidence, pinned, accused, setAccused, reasoning, setReasoning,
+  titleForId, loading, error, onTogglePin, onClose, onSubmit,
+}: {
   suspects: Suspect[]; evidence: EvidenceRecord[]; pinned: string[]; accused: string; setAccused: (id: string) => void;
   reasoning: string; setReasoning: (value: string) => void; titleForId: (id: string) => string;
   loading: boolean; error: string; onTogglePin: (id: string) => void; onClose: () => void; onSubmit: () => void;
 }) {
-  return <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="accusation-dialog" role="dialog" aria-modal="true" aria-labelledby="accusation-title">
-      <button className="dialog-close" onClick={onClose} aria-label="Close accusation dialog"><X size={18} /></button>
-      <div className="eyebrow"><span className="eyebrow-rule" /> FINAL DEDUCTION</div><h2 id="accusation-title">Who is responsible?</h2>
-      <p className="dialog-intro">Choose the suspect and the records that support your conclusion.</p>
-      <div className="dialog-section"><div className="dialog-section-heading"><span>01 · SELECT A SUSPECT</span><small>{suspects.length} DOSSIERS</small></div>
-        <div className="suspect-choices">{suspects.map((suspect, index) => <button key={suspect.suspectId} className={accused === suspect.suspectId ? 'suspect-choice chosen' : 'suspect-choice'} onClick={() => setAccused(suspect.suspectId)} aria-pressed={accused === suspect.suspectId}>
-          <Portrait src={suspect.avatarUrl} name={suspect.name} /><span><b>{suspect.name}</b><small>D-{String(index + 1).padStart(2, '0')} · {suspect.occupation}</small></span>{accused === suspect.suspectId && <Check size={16} />}
-        </button>)}</div>
-      </div>
-      <div className="dialog-section evidence-select-section"><div className="dialog-section-heading"><span>02 · SELECT EVIDENCE</span><small>{pinned.length} SELECTED</small></div>
-        <p className="selection-help">Select the records that best support your theory. You can change your selections.</p>
-        {evidence.length ? <div className="evidence-choices">{evidence.map((item) => {
-          const selected = pinned.includes(item.evidenceId);
-          return <button key={item.evidenceId} className={selected ? 'evidence-choice selected' : 'evidence-choice'} onClick={() => onTogglePin(item.evidenceId)} aria-pressed={selected}>
-            <span className="choice-check">{selected && <Check size={13} />}</span><span><b>{evidenceTitle(item)}</b><small>{evidenceType(item)} · {evidenceDetail(item)}</small></span>
-          </button>;
-        })}</div> : <p className="selection-help">This case has no evidence records to select.</p>}
-      </div>
-      <label className="reasoning-label" htmlFor="reasoning">YOUR DEDUCTION <span>OPTIONAL</span></label>
-      <textarea id="reasoning" value={reasoning} onChange={(event) => setReasoning(event.target.value)} placeholder="What detail convinced you?" />
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-      <div className="dialog-footer"><span><Shield size={14} /> Your verdict reveals the case solution.</span>
-        <button className="primary-button" disabled={!accused || loading} onClick={onSubmit}>{loading ? <LoaderCircle className="spin" size={16} /> : <Target size={16} />} Submit accusation</button>
-      </div>
-    </section>
-  </div>;
+  const [confirming, setConfirming] = useState(false);
+  const chosenSuspect = suspects.find((s) => s.suspectId === accused);
+
+  return (
+    <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="accusation-dialog" role="dialog" aria-modal="true" aria-labelledby="accusation-title">
+        <button className="dialog-close" onClick={onClose} aria-label="Close accusation dialog"><X size={18} /></button>
+        <div className="eyebrow"><span className="eyebrow-rule" /> FINAL DEDUCTION</div>
+        <h2 id="accusation-title">Who is responsible?</h2>
+        <p className="dialog-intro">Choose the suspect and the records that support your conclusion.</p>
+
+        <div className="dialog-section">
+          <div className="dialog-section-heading"><span>01 · SELECT A SUSPECT</span><small>{suspects.length} DOSSIERS</small></div>
+          <div className="suspect-choices">
+            {suspects.map((suspect, index) => (
+              <button
+                key={suspect.suspectId}
+                className={accused === suspect.suspectId ? 'suspect-choice chosen' : 'suspect-choice'}
+                onClick={() => { setAccused(suspect.suspectId); setConfirming(false); }}
+                aria-pressed={accused === suspect.suspectId}
+              >
+                <Portrait src={suspect.avatarUrl} name={suspect.name} />
+                <span><b>{suspect.name}</b><small>D-{String(index + 1).padStart(2, '0')} · {suspect.occupation}</small></span>
+                {accused === suspect.suspectId && <Check size={16} />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="dialog-section evidence-select-section">
+          <div className="dialog-section-heading"><span>02 · SELECT EVIDENCE</span><small>{pinned.length} SELECTED</small></div>
+          <p className="selection-help">Select the records that best support your theory. You can change your selections.</p>
+          {evidence.length ? (
+            <div className="evidence-choices">
+              {evidence.map((item) => {
+                const selected = pinned.includes(item.evidenceId);
+                return (
+                  <button
+                    key={item.evidenceId}
+                    className={selected ? 'evidence-choice selected' : 'evidence-choice'}
+                    onClick={() => onTogglePin(item.evidenceId)}
+                    aria-pressed={selected}
+                  >
+                    <span className="choice-check">{selected && <Check size={13} />}</span>
+                    <span><b>{evidenceTitle(item)}</b><small>{evidenceType(item)} · {evidenceDetail(item)}</small></span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : <p className="selection-help">This case has no evidence records to select.</p>}
+        </div>
+
+        <label className="reasoning-label" htmlFor="reasoning">YOUR DEDUCTION <span>OPTIONAL</span></label>
+        <textarea id="reasoning" value={reasoning} onChange={(event) => setReasoning(event.target.value)} placeholder="What detail convinced you?" />
+
+        {confirming && chosenSuspect && (
+          <div className="confirmation-callout" role="alert">
+            <AlertTriangle size={18} className="warn-icon" />
+            <div>
+              <b>Confirm Final Accusation</b>
+              <p>Are you ready to accuse <b>{chosenSuspect.name}</b>? Submitting will evaluate your evidence and reveal the step-by-step crime reconstruction.</p>
+            </div>
+          </div>
+        )}
+
+        {error && <ErrorMessage>{error}</ErrorMessage>}
+
+        <div className="dialog-footer">
+          {confirming ? (
+            <>
+              <button className="secondary-button" onClick={() => setConfirming(false)}>Back to review</button>
+              <button className="primary-button accuse-confirm-btn" disabled={loading} onClick={onSubmit}>
+                {loading ? <LoaderCircle className="spin" size={16} /> : <Target size={16} />} Confirm & Reveal Solution
+              </button>
+            </>
+          ) : (
+            <>
+              <span><Shield size={14} /> Accusation requires selecting one prime suspect.</span>
+              <button className="primary-button" disabled={!accused || loading} onClick={() => setConfirming(true)}>
+                Review & Accuse <ArrowRight size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function Portrait({ src, name }: { src: string; name: string }) {
   const [failed, setFailed] = useState(!src);
   useEffect(() => setFailed(!src), [src]);
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  return <span className="portrait">{!failed && <img src={src} alt={`${name} portrait`} onError={() => setFailed(true)} />}
-    {failed && <span aria-label={`${name} portrait placeholder`}>{initials}</span>}</span>;
+  return (
+    <span className="portrait">
+      {!failed && <img src={src} alt={`${name} portrait`} onError={() => setFailed(true)} />}
+      {failed && <span aria-label={`${name} portrait placeholder`}>{initials}</span>}
+    </span>
+  );
 }
 
 function ImageWithFallback({ src, alt, label, variant }: { src: string; alt: string; label: string; variant: string }) {
-  const [failed, setFailed] = useState(!src || src.startsWith('data:image/svg'));
-  const [loading, setImageLoading] = useState(Boolean(src) && !src.startsWith('data:image/svg'));
+  const [failed, setFailed] = useState(!src);
+  const [loading, setImageLoading] = useState(Boolean(src) && !src.startsWith('data:image/'));
   useEffect(() => {
-    const unavailable = !src || src.startsWith('data:image/svg');
+    const unavailable = !src;
     setFailed(unavailable);
-    setImageLoading(!unavailable);
+    setImageLoading(!unavailable && !src.startsWith('data:image/'));
   }, [src]);
-  return <div className={`image-fallback ${variant} ${failed ? 'fallback-active' : ''}`}>
-    {!failed && <img src={src} alt={alt} loading="lazy" onLoad={() => setImageLoading(false)} onError={() => { setFailed(true); setImageLoading(false); }} />}
-    {loading && <div className="media-loading" role="status"><LoaderCircle className="spin" size={20} /><span>Loading image…</span></div>}
-    {failed && <div className="media-unavailable"><ImageIcon size={24} strokeWidth={1.2} /><span>NO IMAGE AVAILABLE</span><b>{label}</b><small>No real image file is attached to this exhibit.</small></div>}
-  </div>;
+
+  return (
+    <div className={`image-fallback ${variant} ${failed ? 'fallback-active' : ''}`}>
+      {!failed && <img src={src} alt={alt} loading="lazy" onLoad={() => setImageLoading(false)} onError={() => { setFailed(true); setImageLoading(false); }} />}
+      {loading && <div className="media-loading" role="status"><LoaderCircle className="spin" size={20} /><span>Loading exhibit…</span></div>}
+      {failed && (
+        <div className="media-unavailable">
+          <ImageIcon size={24} strokeWidth={1.2} />
+          <span>NO IMAGE ATTACHED</span>
+          <b>{label}</b>
+          <small>No scene photograph is attached to this record.</small>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function VideoWithFallback({ src, label }: { src: string; label: string }) {
@@ -651,9 +1402,11 @@ function VideoWithFallback({ src, label }: { src: string; label: string }) {
 
 function PinAction({ id, pinned, onTogglePin }: { id: string; pinned: string[]; onTogglePin: (id: string) => void }) {
   const selected = pinned.includes(id);
-  return <button className={selected ? 'pin-action pinned' : 'pin-action'} onClick={() => onTogglePin(id)} aria-pressed={selected}>
-    {selected ? <><Check size={14} /> Pinned</> : <><Fingerprint size={14} /> Pin evidence</>}
-  </button>;
+  return (
+    <button className={selected ? 'pin-action pinned' : 'pin-action'} onClick={() => onTogglePin(id)} aria-pressed={selected}>
+      {selected ? <><Check size={14} /> Pinned</> : <><Fingerprint size={14} /> Pin evidence</>}
+    </button>
+  );
 }
 
 function EmptyEvidence({ title, detail }: { title: string; detail: string }) {

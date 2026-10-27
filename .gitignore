@@ -1,9 +1,10 @@
-﻿# Environment variables and secrets
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
 server/.env
 client/.env
+server/data/
 
 # Dependencies
 node_modules/

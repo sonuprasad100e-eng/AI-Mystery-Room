@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "concurrently -k -n server,client -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w server && npm run build -w client",
-    "seed": "npm run seed -w server"
+    "seed": "npm run seed -w server",
+    "test": "npm run test -w server"
   },
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.65.1",
