@@ -1,0 +1,11 @@
+import express from 'express';import cors from 'cors';
+import { connectDb, mongoReady } from './config/db.js';import { env } from './config/env.js';import { seedCase } from './services/seedCase.js';import { CaseModel } from './models/Case.model.js';import { CaseGenerationError, createCase,getCase,listCases,sanitize,solveCase,getHint } from './services/case.service.js';import { generateSchema,solveSchema } from './schemas/case.schema.js';
+const app=express();app.use(cors());app.use(express.json({limit:'2mb'}));
+app.get('/api/health',(_req,res)=>res.json({status:'ok',dbState:mongoReady?'connected':'memory',aiConfigured:Boolean(env.geminiKey)}));
+app.get('/api/cases',async(_req,res,next)=>{try{res.json({cases:await listCases()})}catch(e){next(e)}});
+app.post('/api/cases/generate',async(req,res,next)=>{try{const body=generateSchema.parse(req.body);const c=await createCase(body.prompt,body.difficulty);res.status(201).json({case:sanitize(c)})}catch(e){next(e)}});
+app.get('/api/cases/:id',async(req,res,next)=>{try{const c=await getCase(req.params.id);if(!c)return res.status(404).json({error:'Case not found'});res.json({case:sanitize(c)})}catch(e){next(e)}});
+app.post('/api/cases/:id/solve',async(req,res,next)=>{try{const body=solveSchema.parse(req.body);const result=await solveCase(req.params.id,body.suspectId,body.selectedEvidenceIds);if(!result)return res.status(404).json({error:'Case not found'});res.json(result)}catch(e){next(e)}});
+app.post('/api/cases/:id/hint',async(req,res,next)=>{try{const hint=await getHint(req.params.id,Number(req.body.step)||1);if(!hint)return res.status(404).json({error:'Case not found'});res.json({hint})}catch(e){next(e)}});
+app.use((err:any,_req:express.Request,res:express.Response,_next:express.NextFunction)=>res.status(err?.name==='ZodError'?400:err instanceof CaseGenerationError?err.status:500).json({error:err?.message||'Unexpected server error'}));
+await connectDb();if(mongoReady&&!(await CaseModel.exists({_id:seedCase._id})))await CaseModel.create(seedCase);app.listen(env.port,()=>console.log(`AI Mystery Room API listening on ${env.port}`));

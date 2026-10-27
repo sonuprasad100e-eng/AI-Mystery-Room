@@ -1,0 +1,21 @@
+{
+  "name": "ai-mystery-room",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "seed": "npm run seed -w server"
+  },
+  "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.65.1",
+    "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "node-releases": "^2.0.60"
+  }
+}
