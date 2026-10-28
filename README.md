@@ -1,278 +1,351 @@
 # AI Mystery Room
 
-An immersive, noir-inspired detective investigation application where players step into the shoes of a lead investigator to solve procedural crime mysteries using forensic exhibits, communication intercepts, AI-generated evidence, suspect interrogations, and synthesized CCTV surveillance footage.
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express.js](https://img.shields.io/badge/Express.js-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose_8-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-3.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Cloudflare Workers AI](https://img.shields.io/badge/Cloudflare-FLUX.1_Schnell-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers-ai/)
+[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+[![Render](https://img.shields.io/badge/Backend-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com/)
+
+**AI Mystery Room** is an immersive, noir-inspired detective investigation game and full-stack web application. Players step into the role of a lead detective to solve procedural crime mysteries by examining forensic evidence exhibits, analyzing encrypted communication intercepts, inspecting surveillance camera feeds, questioning suspects in real time, and formulating evidence-backed accusations.
 
 ---
 
 ## Table of Contents
 
-- [Project Overview](#project-overview)
+- [Live Demo](#live-demo)
 - [Key Features](#key-features)
+- [Screenshots](#screenshots)
 - [Technology Stack](#technology-stack)
-- [How the Application Works](#how-the-application-works)
-- [Project Architecture](#project-architecture)
-- [Prerequisites](#prerequisites)
-- [Installation and Setup](#installation-and-setup)
+- [System Architecture](#system-architecture)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Environment Configuration](#environment-configuration)
+  - [Running Locally](#running-locally)
 - [Environment Variables](#environment-variables)
 - [API Documentation](#api-documentation)
-- [AI Image and CCTV Video Generation](#ai-image-and-cctv-video-generation)
-- [Testing and Verification](#testing-and-verification)
+- [Testing and Build](#testing-and-build)
+- [Deployment Guide](#deployment-guide)
+  - [Backend on Render](#backend-on-render)
+  - [Frontend on Vercel](#frontend-on-vercel)
 - [Troubleshooting](#troubleshooting)
 - [Security and Solution Shielding](#security-and-solution-shielding)
 - [Future Improvements](#future-improvements)
 - [Contributing](#contributing)
 - [License](#license)
-- [Author and Repository](#author-and-repository)
 
 ---
 
-## Project Overview
+## Live Demo
 
-**AI Mystery Room** is a full-stack web application designed to bridge AI narrative generation with interactive detective gameplay. Players investigate intricate crime scenarios, examine forensic evidence, uncover hidden motives, cross-reference alibis against case timelines, and interrogate suspects in real time.
+The project is deployed across two independent cloud environments:
 
-### Core Experience
-- **Interactive Case Desk:** Browse archived cases or generate completely unique mystery scenarios on demand with variable difficulty tiers.
-- **Evidence Locker:** Inspect recovered forensic exhibits, examine WhatsApp communication transcripts, and monitor CCTV surveillance feeds.
-- **Dynamic Suspect Interrogation:** Question suspects directly using an AI-backed conversational interface where suspects stay in character, defend their alibis, and never prematurely reveal the case solution.
-- **Synthesized CCTV Surveillance:** Convert static crime-scene photography into authentic, playable MP4 surveillance camera footage with zoom, scanlines, analog grain, and timeline-accurate timestamps.
-- **Accusation Engine:** Formulate an accusation by naming the prime suspect and linking corroborating evidence items, earning an investigation score based on investigative accuracy.
+* **Frontend Application (Vercel):** [https://ai-mystery-room-three.vercel.app/](https://ai-mystery-room-three.vercel.app/)  
+  *Interactive React single-page application.*
+* **Backend REST API (Render):** [https://ai-mystery-room-msfn.onrender.com](https://ai-mystery-room-msfn.onrender.com/)  
+  *Node.js + Express API server with connected MongoDB and AI services.*
+
+> [!NOTE]
+> Free-tier Render web services spin down after inactivity. If making your first request after an idle period, allow 30–50 seconds for the backend instance to spin up. You can check operational status at [https://ai-mystery-room-msfn.onrender.com/api/health](https://ai-mystery-room-msfn.onrender.com/api/health).
 
 ---
 
 ## Key Features
 
-### 1. AI-Powered Mystery Generation
-- Generates coherent, multifaceted crime scenarios using Google Gemini (`gemini-3.5-flash-lite`).
-- Generates culturally grounded character names, motives, alibis, detailed timelines, physical evidence items, and logical solutions.
-- Enforces strict chronological event order and schema validation via Zod before persisting to the database.
+### 1. AI-Generated Mystery Cases
+- Creates unique, multifaceted crime mysteries on demand based on custom scenarios and selectable difficulty levels (`easy`, `medium`, `hard`).
+- Powered by Google Gemini (`gemini-3.5-flash-lite`) via the official `@google/genai` SDK.
+- Automatically generates culturally grounded characters, alibis, motives, chronological incident timelines, physical evidence items, and hidden culprit contradictions.
+- Enforces strict chronological validation and schema integrity with Zod before saving to the database.
+- Includes a pre-seeded offline demo case (*The Case of the Vault Breach*) that is immediately playable without external API keys.
 
 ### 2. Live Suspect Interrogation
-- Ask custom questions to any person of interest in real time.
-- Suspects respond with concise, conversational dialogue matching their personality, motives, and quirks.
-- Built-in anti-leak guardrails prevent suspects from admitting guilt or revealing the solution prematurely unless cornered with indisputable proof.
+- Chat directly with persons of interest in an interactive conversational terminal.
+- Suspects defend their alibis and maintain personality quirks in real time using Gemini AI.
+- **Strict Anti-Leak Guardrails:** Suspect prompts instruct the model never to confess prematurely or leak secret culprit details unless presented with incontrovertible evidence.
 
-### 3. Multi-Provider Forensic Image Generation
-- Generates high-fidelity crime scene photographs on demand.
-- **Primary AI Provider:** Cloudflare Workers AI using `@cf/black-forest-labs/flux-1-schnell`.
-- **Automatic Fallback:** Gracefully falls back to Pollinations.ai or high-detail procedural vector SVG schematics if external credentials are absent or network limits are exceeded.
-- Interactive numbered clue hotspots positioned over exhibits allow players to inspect physical clues.
+### 3. Multi-Tier Forensic Evidence Locker
+- **Communication Intercepts:** Read extracted messaging logs (including deleted and recovered messages) between suspects and victims.
+- **Forensic Photographs:** Examine crime-scene evidence with interactive clue hotspots that reveal forensic notes and timestamps.
+- **Multi-Provider Image Generation:** On-demand forensic photograph synthesis using Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`), with automated fallbacks to Pollinations and annotated procedural vector SVG schematics.
 
-### 4. Stage 1 CCTV Video Synthesizer
-- Transforms forensic photographs and surveillance snapshots into authentic, playable **H.264 MP4 videos** using bundled FFmpeg.
-- **CCTV Surveillance Effects:**
-  - Ken Burns slow digital camera zoom and pan.
-  - Noir surveillance color grading and contrast adjustment.
-  - Analog temporal film grain (`noise`).
-  - High-density scanline raster grid (`drawgrid`).
-  - Phosphorescent green `(REC)` camera badge and UTC timeline timestamps (`drawtext`).
-  - Glitch pulses on recordings with detected anomalies.
-- Videos are stored in `server/data/media/` and streamed over HTTP with range request support for video scrubbing.
+### 4. Synthesized CCTV Surveillance Video
+- Inspect simulated closed-circuit surveillance camera angles with timestamped frame logs.
+- **Deterministic Video Synthesizer:** Converts still forensic photography into authentic, playable **H.264 MP4 videos** using a bundled FFmpeg filtergraph.
+- Features slow Ken Burns camera panning, noir color grading, analog temporal film grain (`noise`), high-density raster scanlines (`drawgrid`), phosphorescent green `(REC)` camera badges, and timestamp glitch pulses on anomaly frames.
+- *Note:* The video synthesizer builds atmospheric video clips from still images and visual filters; it does not generate novel AI deepfake human motion.
 
-### 5. Progressive Hints and Solution Shielding
-- 3-tier progressive hint system providing gradual nudges without spoiling the outcome.
-- **Server-Side Sanitization:** The true culprit, motive, and solution are completely stripped from all public case queries and interrogation responses, preventing client-side inspection or reverse engineering.
+### 5. Context-Aware Progressive Hints
+- 3-tier progressive hint engine that provides gentle investigative nudges when stuck without revealing the perpetrator.
 
-### 6. Accurate Evaluation and Scoring
-- Evaluates the player's final accusation against the true culprit.
-- Awards up to 100 points based on correct perpetrator identification and relevant evidence correlation.
-- Reveals the complete case breakdown, method, and motive only after an accusation is formally logged.
+### 6. Accusation Engine & Investigation Scoring
+- Accuse any suspect and link corroborating evidence IDs from your pinned evidence list.
+- Calculates an investigative score from **0 to 100** based on perpetrator identification and evidence relevance.
+- Securely reveals the complete case reconstruction, weapon, method, and culprit motive only after an accusation has been logged.
+
+---
+
+## Screenshots
+
+> *Placeholder: Add screenshots of the Case Desk, Evidence Locker, Interrogation Terminal, and Accusation Summary here.*
+
+```text
++-----------------------------------------------------------------------------------+
+|  [Case Briefing & Dossier]        [Evidence Locker & Hotspots]                    |
+|  Inspect crime details, victim    Click clue markers to inspect physical          |
+|  timeline, and suspect bios.      evidence and extracted chat threads.           |
++-----------------------------------------------------------------------------------+
+|  [Interrogation Terminal]         [CCTV Feed & Accusation Debrief]                |
+|  Question suspects in character   Review simulated surveillance clips and file    |
+|  with guarded responses.          your final accusation for scoring.              |
++-----------------------------------------------------------------------------------+
+```
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology | Purpose / Notes |
-| :--- | :--- | :--- |
-| **Frontend Framework** | **React 18** | Modular UI components and interactive game screens |
-| **Language** | **TypeScript 5** | Strict type safety across client and server |
-| **Build Tool** | **Vite 6** | Fast development server and production bundler |
-| **Styling** | **Tailwind CSS + Custom CSS** | Noir visual design, retro CRT monitors, scanlines, and glow tokens |
-| **Icons** | **Lucide React** | Clean, lightweight UI iconography |
-| **Backend Framework** | **Node.js + Express 4** | REST API server, static media streamer, and orchestration |
-| **Runtime / Watcher** | **TSX** | TypeScript execution and live reload in development |
-| **Database** | **MongoDB & Mongoose 8** | Case persistence (with automatic in-memory fallback) |
-| **Schema Validation** | **Zod 4** | Input validation, case schema integrity, and sanitized payloads |
-| **Text Generation AI** | **Google Gemini API** | Model `gemini-3.5-flash-lite` via `@google/genai` |
-| **Image Generation AI** | **Cloudflare Workers AI** | Model `@cf/black-forest-labs/flux-1-schnell` with fallbacks |
-| **Video Processing** | **FFmpeg** | Standalone static binary via `@ffmpeg-installer/ffmpeg` |
+### Frontend
+- **React 18:** Functional component architecture with hooks (`useState`, `useEffect`, `useMemo`, `useRef`).
+- **TypeScript 5:** Static type definitions across game state and evidence models.
+- **Vite 6:** Ultra-fast bundling, HMR, and build pipeline.
+- **Tailwind CSS 3 + Custom CSS:** Noir aesthetic, CRT scanline effects, phosphor glow tokens, and responsive layouts.
+- **Lucide React:** Lightweight, vector iconography for evidence tags and UI controls.
+
+### Backend
+- **Node.js 20+:** Server runtime environment.
+- **Express 4:** REST API routing, CORS negotiation, and streaming static media delivery.
+- **TypeScript 5:** End-to-end typing across schemas, routes, and services.
+- **TSX:** Fast, zero-config TypeScript execution and file watching during development.
+- **CORS:** Cross-origin resource sharing middleware supporting Vercel and local origins.
+
+### Database
+- **MongoDB:** NoSQL document database for case persistence.
+- **Mongoose 8:** Object data modeling with schemas, indexes, and connection timeout handling.
+- **In-Memory Store:** Automatic in-memory fallback map if MongoDB is unreachable or unconfigured.
+
+### Artificial Intelligence & Media Processing
+- **Google Gemini API (`gemini-3.5-flash-lite`):** Mystery case generation and suspect conversation logic via `@google/genai`.
+- **Cloudflare Workers AI:** FLUX.1 Schnell forensic photo generation (`@cf/black-forest-labs/flux-1-schnell`).
+- **Pollinations.ai:** Secondary AI image generation fallback.
+- **Procedural Vector SVGs:** High-detail procedural evidence schematics rendered without external network dependencies.
+- **FFmpeg (`@ffmpeg-installer/ffmpeg`):** Bundled static FFmpeg binary used for CCTV video synthesis.
+
+### Testing & Tooling
+- **Node.js Native Test Runner (`node:test` + `node:assert/strict`):** Lightweight, zero-dependency testing.
+- **Concurrently:** Monorepo script orchestration for parallel frontend and backend execution.
+- **npm Workspaces:** Unified dependency management across root, `client/`, and `server/`.
+
+### Deployment & Hosting
+- **Vercel:** Frontend hosting with SPA routing and build optimization.
+- **Render:** Backend Web Service hosting Node.js and serving the REST API.
 
 ---
 
-## How the Application Works
+## System Architecture
 
 ```mermaid
-flowchart TD
-    A[Launch Application] --> B[Incident Briefing / Archive]
-    B -->|Select Case| C[Enter Case File]
-    B -->|Generate New Case| D[Gemini AI Generates Scenario]
-    D --> C
-    C --> E[Examine Case Timeline & Suspect Dossiers]
-    C --> F[Evidence Locker]
-    F --> F1[Read Chat Transcripts]
-    F --> F2[Inspect Forensics & Hotspots]
-    F --> F3[Monitor CCTV Feeds]
-    F2 -->|On Demand| G1[Synthesize AI Photograph]
-    F3 -->|On Demand| G2[Synthesize CCTV MP4 Video]
-    C --> H[Interrogate Persons of Interest]
-    C --> I[Request Progressive Hints]
-    C --> J[File Formal Accusation]
-    J --> K[Evaluation Engine Calculates Score 0-100]
-    K --> L[Full Case Solution Revealed]
+flowchart LR
+    subgraph Client["Frontend (Vercel)"]
+        UI[React 18 UI / Tailwind]
+        API_CFG[client/src/config/api.ts]
+        UI --> API_CFG
+    end
+
+    subgraph Server["Backend (Render)"]
+        EXPRESS[Express 4 REST Server]
+        ZOD[Zod Validation & Sanitization]
+        CASE_SVC[Case Service]
+        IMG_SVC[Image Service]
+        VID_SVC[Video Synthesizer]
+        DB_CFG[Database Config]
+
+        EXPRESS --> ZOD
+        ZOD --> CASE_SVC
+        ZOD --> IMG_SVC
+        ZOD --> VID_SVC
+        EXPRESS --> DB_CFG
+    end
+
+    subgraph External["External Cloud Services"]
+        GEMINI["Google Gemini API<br/>(gemini-3.5-flash-lite)"]
+        CF_AI["Cloudflare Workers AI<br/>(FLUX.1 Schnell)"]
+        MONGO[("MongoDB Atlas<br/>or In-Memory Fallback")]
+    end
+
+    API_CFG -- "HTTP/JSON (CORS)" --> EXPRESS
+    CASE_SVC -- "AI Generation & Interrogation" --> GEMINI
+    IMG_SVC -- "Forensic Photo Synthesis" --> CF_AI
+    VID_SVC -- "FFmpeg Filtergraph" --> VID_SVC
+    DB_CFG -- "Mongoose Connection" --> MONGO
 ```
 
-1. **Incident Briefing:** Review the case number, victim summary, time of death, and chronological timeline.
-2. **Review Dossiers:** Inspect suspect motives, alibis, occupations, and preliminary statements.
-3. **Analyze Evidence:**
-   - **Messages:** Read extracted WhatsApp/SMS chats including deleted and recovered messages.
-   - **Forensics:** Inspect physical exhibits and click clue markers to reveal notes.
-   - **CCTV Footage:** Switch between camera angles; generate or replay synthesized surveillance video.
-4. **Interrogate Suspects:** Question suspects to poke holes in their alibis while managing your deduction strategy.
-5. **Request Hints:** Use up to 3 progressive hints if you encounter an investigative dead end.
-6. **Submit Accusation:** Select the prime suspect, attach supporting evidence IDs, and submit for evaluation.
-7. **Score & Debrief:** Receive your score (0–100) alongside the comprehensive resolution of the crime.
+### Data Flow
+1. **Case Retrieval & Generation:** The user opens the app; the client queries `GET /api/cases`. The user can select a pre-seeded case or request a new one via `POST /api/cases/generate`. The backend prompts Gemini, validates the output with Zod, saves to MongoDB, strips secret solution fields, and returns a sanitized case to the user.
+2. **Suspect Interrogation:** User submits a question. The backend loads the suspect's dossier and conversation history, executes a shielded prompt against Gemini, and returns the suspect's in-character reply.
+3. **Media Generation:** When a forensic photograph or CCTV feed is requested, the backend attempts synthesis via Cloudflare Workers AI (or falls back to Pollinations / procedural SVG). For CCTV clips, FFmpeg compiles an MP4 video that is cached in `server/data/media/` and served over HTTP.
+4. **Accusation Evaluation:** User submits suspect ID and corroborating evidence IDs. The server scores the submission against the protected solution and returns the score, detailed method, and resolution.
 
 ---
 
-## Project Architecture
+## Project Structure
 
 ```text
 AI-Mystery-Room/
-├── .env.example              # Template for server configuration
-├── .gitignore                # Excludes secrets, node_modules, and media storage
-├── package.json              # Root workspace orchestrator (scripts: dev, build, test)
-├── package-lock.json         # Locked dependency graph
+├── .env.example              # Server environment template
+├── .gitignore                # Git ignore rules for node_modules, build outputs, and secrets
+├── package.json              # Monorepo workspace orchestrator (workspaces: server, client)
+├── package-lock.json         # Pinned dependency lockfile
 ├── README.md                 # Project documentation
-├── spec.md                   # Detailed design & technical specification
 │
-├── client/                   # Frontend Workspace
-│   ├── index.html            # Single-page HTML shell
-│   ├── package.json          # Frontend dependencies & Vite scripts
+├── client/                   # Frontend React + Vite application
+│   ├── .env.example          # Frontend environment template (VITE_API_BASE_URL)
+│   ├── index.html            # HTML shell
+│   ├── package.json          # Frontend dependencies and build scripts
 │   ├── postcss.config.js     # PostCSS configuration
-│   ├── tailwind.config.js    # Tailwind configuration
-│   ├── tsconfig.json         # Frontend TypeScript configuration
+│   ├── tailwind.config.js    # Tailwind CSS configuration
+│   ├── tsconfig.json         # Client TypeScript configuration
+│   ├── vercel.json           # Vercel deployment rewrites and clean URLs configuration
+│   ├── vite.config.ts        # Vite configuration and development proxy
 │   └── src/
-│       ├── App.tsx           # Main application state, views, and modals
-│       ├── main.tsx          # React application entry point
-│       └── style.css         # Dark noir theme, CRT screen effects, and layout
+│       ├── App.tsx           # Primary React UI component and application state
+│       ├── main.tsx          # Application entry point
+│       ├── style.css         # Noir styling, CRT scanlines, and UI tokens
+│       ├── config/
+│       │   └── api.ts        # Dynamic API base URL and media resolution utility
+│       └── types/
+│           └── mystery.ts    # Frontend mystery, suspect, and evidence interfaces
 │
-└── server/                   # Backend Workspace
-    ├── package.json          # Backend dependencies & test scripts
+└── server/                   # Backend Express + TypeScript REST API
+    ├── package.json          # Backend dependencies and test scripts
     ├── tsconfig.json         # Server TypeScript compilation settings
-    ├── test-cloudflare.js    # Standalone Cloudflare API verification test
     └── src/
-        ├── index.ts          # Express API server, routes, and middleware
-        ├── seed.ts           # Standalone database seed script
-        ├── types.ts          # Core TypeScript definitions (MysteryCase, Suspect, etc.)
+        ├── index.ts          # Express server setup, middleware, and route handlers
+        ├── seed.ts           # Standalone database seeding script
+        ├── types.ts          # Backend MysteryCase and PublicCase interfaces
         ├── config/
-        │   ├── db.ts         # MongoDB connection with in-memory memory map fallback
-        │   └── env.ts        # Safe environment validation with credential masking
+        │   ├── db.ts         # MongoDB connection with in-memory map fallback
+        │   └── env.ts        # Environment variable validation and credential shielding
         ├── models/
-        │   └── Case.model.ts # Mongoose schema for persistent mystery cases
+        │   └── Case.model.ts # Mongoose schema for persistent MongoDB storage
         ├── schemas/
-        │   └── case.schema.ts# Zod validation schemas for API inputs and case outputs
+        │   └── case.schema.ts# Zod schemas for input validation and case validation
         ├── services/
         │   ├── case.service.ts  # Gemini mystery generator, hint engine, and scoring
-        │   ├── image.service.ts # Cloudflare FLUX.1 / Pollinations / SVG image service
-        │   ├── video.service.ts # Bundled FFmpeg CCTV surveillance video synthesizer
-        │   └── seedCase.ts      # Offline demo case ("The Case of the Vault Breach")
+        │   ├── image.service.ts # Cloudflare FLUX.1 Schnell, Pollinations, and SVG fallbacks
+        │   ├── seedCase.ts      # Offline demo case ("The Case of the Vault Breach")
+        │   └── video.service.ts # Bundled FFmpeg CCTV surveillance video synthesizer
         └── tests/
-            ├── api.test.ts        # Comprehensive integration tests for API endpoints
-            ├── cloudflare.test.ts # Cloudflare Workers AI image generation unit tests
-            └── video.test.ts      # CCTV video synthesizer & URL security tests
+            ├── api.test.ts          # Integration tests for Express API endpoints
+            ├── clientConfig.test.ts # Unit tests for frontend API URL and media resolution
+            ├── cloudflare.test.ts   # Unit tests for Cloudflare Workers AI image generation
+            └── video.test.ts        # Unit tests for CCTV synthesizer and media URL security
 ```
 
 ---
 
-## Prerequisites
+## Getting Started
 
-Before running the project locally, ensure you have:
+### Prerequisites
+- **Node.js:** v20.0.0 or later (v22+ recommended). Run `node -v` to check.
+- **npm:** v10.0.0 or later. Run `npm -v` to check.
+- **Git:** Installed on your machine.
+- **MongoDB:** *(Optional)* Local MongoDB or MongoDB Atlas instance. If omitted, the server automatically uses an in-memory repository.
+- **API Keys:** *(Optional)* Google Gemini API key and Cloudflare Workers AI credentials for live AI generation. The offline demo case works without any API keys.
 
-- **Node.js:** v20.0.0 or later (v22+ recommended). Check with `node -v`.
-- **npm:** v10.0.0 or later. Check with `npm -v`.
-- **Git:** For cloning and version control.
-- **MongoDB:** *(Optional)* A local MongoDB instance or MongoDB Atlas connection string. If omitted, the server automatically runs using an in-memory database.
-- **Google Gemini API Key:** *(Optional)* Required to generate new cases and interrogate suspects. The pre-seeded case works completely offline without an API key.
-- **Cloudflare Workers AI Credentials:** *(Optional)* Account ID and API Token for FLUX.1 Schnell image generation. If omitted, the app automatically falls back to Pollinations.ai or procedural vector SVG schematics.
+### Installation
 
----
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/sonuprasad100e-eng/AI-Mystery-Room.git
+   cd AI-Mystery-Room
+   ```
 
-## Installation and Setup
+2. **Install all dependencies:**
+   Using npm workspaces, install all root, client, and server dependencies with a single command:
+   ```bash
+   npm install
+   ```
 
-### 1. Clone the Repository
+### Environment Configuration
 
-```bash
-git clone https://github.com/sonuprasad100e-eng/AI-Mystery-Room.git
-cd AI-Mystery-Room
-```
+1. **Configure the backend:**
+   Copy `.env.example` into `server/.env`:
+   ```bash
+   # On Windows PowerShell
+   Copy-Item .env.example server/.env
 
-### 2. Install Dependencies
+   # On Linux/macOS
+   cp .env.example server/.env
+   ```
+   Open `server/.env` and insert your credentials (see [Environment Variables](#environment-variables)). If left blank, offline demo mode is activated automatically.
 
-Install all root, client, and server dependencies in a single step using npm workspaces:
+2. **Configure the frontend:** *(Optional for local dev)*
+   In local development, the Vite dev server automatically proxies `/api` requests to `http://localhost:5000`. If you want to specify it explicitly, copy `client/.env.example` to `client/.env`:
+   ```env
+   VITE_API_BASE_URL=http://localhost:5000/api
+   ```
 
-```bash
-npm install
-```
+### Running Locally
 
-### 3. Configure Environment Variables
-
-Copy the example environment configuration into `server/.env`:
-
-```bash
-cp .env.example server/.env
-```
-
-Open `server/.env` in your code editor and provide your API keys if you wish to use AI generation (see [Environment Variables](#environment-variables)). If left blank, the application will still run in offline demo mode.
-
-### 4. Start Development Servers
-
-Run both the frontend and backend concurrently with one command:
-
+Start both the backend and frontend concurrently from the repository root:
 ```bash
 npm run dev
 ```
 
-- **Backend API:** Available at `http://localhost:5000`
-- **Frontend App:** Available at `http://localhost:5173`
-
-Open `http://localhost:5173` in your browser to begin investigating!
+* **Frontend:** Available at `http://localhost:5173`
+* **Backend API:** Available at `http://localhost:5000`
 
 ---
 
 ## Environment Variables
 
-All sensitive configuration is loaded exclusively on the backend (`server/.env`) and is never sent to or exposed by the client.
+### Backend Variables (`server/.env` / Render Settings)
+All backend credentials must be kept confidential and configured exclusively on the server or in the Render Dashboard. **Never expose these to the frontend.**
 
-| Variable | Description | Required? | Default / Example |
+| Variable | Required? | Description | Default / Example |
 | :--- | :--- | :--- | :--- |
-| `PORT` | Port for the Express backend server | Optional | `5000` |
-| `NODE_ENV` | Runtime environment (`development` / `production`) | Optional | `development` |
-| `MONGODB_URI` | MongoDB connection URI. Falls back to in-memory store if unset | Optional | `mongodb://127.0.0.1:27017/ai-mystery-room` |
-| `GEMINI_API_KEY` | Google Gemini API key for case generation and interrogation | Optional* | `YOUR_GEMINI_API_KEY` |
-| `GEMINI_TEXT_MODEL` | Gemini text generation model identifier | Optional | `gemini-3.5-flash-lite` |
-| `VITE_API_BASE_URL` | Base API URL used by the frontend | Optional | `http://localhost:5000/api` |
-| `ENABLE_AI_IMAGE_GEN` | Automatically generate AI crime scene photos for new cases | Optional | `false` |
-| `IMAGE_PROVIDER` | Preferred image provider (`cloudflare`, `pollinations`, `huggingface`) | Optional | `cloudflare` |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID for Workers AI | Optional** | `YOUR_CLOUDFLARE_ACCOUNT_ID` |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers AI read/write permission | Optional** | `YOUR_CLOUDFLARE_API_TOKEN` |
-| `POLLINATIONS_API_KEY` | Optional key to bypass Pollinations rate limits | Optional | `YOUR_POLLINATIONS_KEY` |
-| `HF_API_TOKEN` | Hugging Face user access token for HF provider | Optional | `YOUR_HF_TOKEN` |
+| `PORT` | Optional | Port for the Express server to listen on | `5000` |
+| `NODE_ENV` | Optional | Runtime mode (`development` or `production`) | `development` |
+| `MONGODB_URI` | Optional | MongoDB connection string. Uses in-memory store if unset | `mongodb://127.0.0.1:27017/ai-mystery-room` |
+| `GEMINI_API_KEY` | Optional* | Google Gemini API key for case generation & interrogation | `YOUR_GEMINI_API_KEY` |
+| `GEMINI_TEXT_MODEL` | Optional | Gemini model identifier | `gemini-3.5-flash-lite` |
+| `ENABLE_AI_IMAGE_GEN`| Optional | Enable automated forensic photograph generation (`true`/`false`)| `false` |
+| `IMAGE_PROVIDER` | Optional | Preferred image provider (`cloudflare`, `pollinations`, `huggingface`)| `pollinations` |
+| `CLOUDFLARE_ACCOUNT_ID`| Optional**| Cloudflare Account ID for Workers AI | `YOUR_CLOUDFLARE_ACCOUNT_ID` |
+| `CLOUDFLARE_API_TOKEN` | Optional**| Cloudflare API Token with Workers AI permissions | `YOUR_CLOUDFLARE_API_TOKEN` |
+| `POLLINATIONS_API_KEY` | Optional | API key to bypass Pollinations rate limits | `YOUR_POLLINATIONS_KEY` |
+| `HF_API_TOKEN` | Optional | Hugging Face User Access Token | `YOUR_HF_TOKEN` |
 
-*\* Required only to dynamically generate new mysteries or interrogate suspects in real time.*  
-*\*\* Required only when `IMAGE_PROVIDER=cloudflare` is selected.*
+*\* Required to generate new cases or interrogate suspects.*  
+*\*\* Required only when `IMAGE_PROVIDER=cloudflare` and `ENABLE_AI_IMAGE_GEN=true`.*
 
-> [!IMPORTANT]
-> Never commit `server/.env` to Git. The project `.gitignore` is preconfigured to prevent sensitive configuration and media directories from being tracked.
+### Frontend Variables (`client/.env` / Vercel Settings)
+
+| Variable | Required? | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | Production | Base URL of the backend API | `https://ai-mystery-room-msfn.onrender.com/api` |
+
+> [!CAUTION]
+> **Vite Security Notice:** In Vite applications, any variable prefixed with `VITE_` (such as `VITE_API_BASE_URL`) is statically compiled and embedded into the client-side JavaScript bundle and is visible to anyone inspecting the website. **Never prefix database connection strings or secret API keys with `VITE_`.**
 
 ---
 
 ## API Documentation
 
-All routes are served under `/api` by the Express backend.
+All routes are prefixed with `/api` and return JSON responses.
 
-### Health and Status
+### 1. Health and Status
 - **`GET /api/health`**
-  - **Purpose:** Verifies backend health, database connection state (`connected` vs `memory`), and AI service readiness.
-  - **Response:**
+  - **Description:** Verifies service health, database connection state (`connected` vs `memory`), and AI readiness.
+  - **Sample Response:**
     ```json
     {
       "status": "ok",
@@ -283,95 +356,87 @@ All routes are served under `/api` by the Express backend.
     }
     ```
 
-### Case Management
+### 2. Case Management
 - **`GET /api/cases`**
-  - **Purpose:** Lists all cases with summary metadata.
+  - **Description:** Returns summary metadata for all available cases.
 - **`POST /api/cases/generate`**
-  - **Purpose:** Generates a new mystery case via Gemini.
-  - **Body:** `{ "prompt": "Art museum theft during a thunderstorm", "difficulty": "hard" }`
-- **`GET /api/cases/:id`**
-  - **Purpose:** Retrieves a case file with the solution strictly stripped.
-
-### Investigation & Accusation
-- **`POST /api/cases/:id/interrogate`**
-  - **Purpose:** Question a suspect in real time.
-  - **Body:**
+  - **Description:** Generates a new case using Gemini AI.
+  - **Payload:**
     ```json
     {
-      "suspectId": "sus_1",
-      "question": "Where were you at 23:15 when the vault alarm sounded?",
+      "prompt": "Jewelry store heist during a citywide blackout in Mumbai",
+      "difficulty": "medium"
+    }
+    ```
+- **`GET /api/cases/:id`**
+  - **Description:** Retrieves the full case file by ID.
+  - **Security:** Secret solution fields (`culpritSuspectId`, `solution`, `fullReconstruction`) are automatically stripped before sending.
+
+### 3. Investigation, Interrogation & Hints
+- **`POST /api/cases/:id/interrogate`** (or `POST /api/cases/:id/suspects/:suspectId/interrogate`)
+  - **Description:** Questions a suspect in character via Gemini AI.
+  - **Payload:**
+    ```json
+    {
+      "suspectId": "suspect_1",
+      "question": "Where were you between 23:00 and 23:30?",
       "history": []
     }
     ```
-- **`POST /api/cases/:id/hint`**
-  - **Purpose:** Returns progressive hints (Step 1, 2, or 3).
-  - **Body:** `{ "step": 1 }`
-- **`POST /api/cases/:id/solve`**
-  - **Purpose:** Submits an accusation and calculates a score (0–100).
-  - **Body:**
+  - **Sample Response:**
     ```json
     {
-      "suspectId": "sus_1",
-      "selectedEvidenceIds": ["ev_photo_1", "ev_cctv_1"]
+      "suspectId": "suspect_1",
+      "answer": "I was taking inventory in the back office. The security logs can prove it."
+    }
+    ```
+- **`POST /api/cases/:id/hint`**
+  - **Description:** Retrieves progressive hints (steps 1, 2, or 3).
+  - **Payload:** `{ "step": 1 }`
+- **`POST /api/cases/:id/solve`**
+  - **Description:** Submits the player's final accusation.
+  - **Payload:**
+    ```json
+    {
+      "suspectId": "suspect_1",
+      "selectedEvidenceIds": ["photo_1", "cctv_1"]
+    }
+    ```
+  - **Sample Response:**
+    ```json
+    {
+      "correct": true,
+      "score": 100,
+      "culpritSuspectId": "suspect_1",
+      "solution": {
+        "motive": "...",
+        "method": "...",
+        "alibiContradiction": "..."
+      }
     }
     ```
 
-### Media Generation
+### 4. Forensic Media
 - **`POST /api/cases/:id/evidence/:evidenceId/generate-image`**
-  - **Purpose:** Generates or regenerates an AI photograph for a specific forensic exhibit.
+  - **Description:** Generates or regenerates an AI photograph for a specific forensic clue.
 - **`POST /api/cases/:id/cctv/:evidenceId/generate-video`**
-  - **Purpose:** Renders a 6-second CCTV MP4 video for a specific camera angle.
-  - **Body:** `{ "force": false }`
+  - **Description:** Synthesizes an MP4 video clip from surveillance snapshots using bundled FFmpeg.
+  - **Payload:** `{ "force": false }`
 - **`GET /api/media/:filename`**
-  - **Purpose:** Serves cached images and streams MP4 videos with `Range` header support.
+  - **Description:** Serves cached evidence images and streams MP4 CCTV videos with HTTP `Range` request support.
 
 ---
 
-## AI Image and CCTV Video Generation
+## Testing and Build
 
-The application maintains two distinct, decoupled media synthesis systems:
-
-```text
-┌────────────────────────────────────────────────────────┐
-│               1. AI Forensic Image Pipeline            │
-│  Case Evidence Prompt ──► Cloudflare FLUX.1 Schnell    │
-│                       ──► Fallback: Pollinations.ai    │
-│                       ──► Fallback: Procedural SVG     │
-│                       └──► Stored as JPEG/PNG/SVG      │
-└────────────────────────────────────────────────────────┘
-
-┌────────────────────────────────────────────────────────┐
-│            2. Stage 1 CCTV Video Synthesizer           │
-│  Forensic Image/Snapshot ──► Bundled FFmpeg            │
-│                          ──► Ken Burns Zoom / Pan      │
-│                          ──► Scanlines & Film Grain    │
-│                          ──► Timestamp & REC Badges    │
-│                          ──► Glitch on Anomaly Frame   │
-│                          └──► Stored as 6-sec H.264 MP4│
-└────────────────────────────────────────────────────────┘
-```
-
-### Clarification on Video Generation (Stage 1 vs Stage 2)
-- **Stage 1 (Implemented):** Uses a deterministic, bundled FFmpeg filtergraph to turn forensic photographs and snapshot frames into genuine, playable surveillance video footage. It features realistic camera panning, temporal film grain, noise, raster scanlines, phosphorescent overlays, and anomaly glitches. **It does not generate novel AI-synthesized human movement.**
-- **Stage 2 (Planned):** Integration of a genuine image-to-video deep-learning model (such as Stable Video Diffusion or open-access video APIs) when free, reproducible endpoints become available.
-
----
-
-## Testing and Verification
-
-The project includes an automated test suite verifying schemas, API endpoints, AI image generation, and FFmpeg video synthesis.
+The project includes an end-to-end automated test suite covering API routes, security sanitization, Cloudflare Workers AI integration, FFmpeg video synthesis, and frontend client configuration.
 
 ### Run Tests
-
-Execute the full test suite from the repository root:
-
 ```bash
+# Run all tests from the repository root
 npm test
-```
 
-*Or directly inside the server directory:*
-
-```bash
+# Or run tests directly within the server workspace
 npm test -w server
 ```
 
@@ -382,67 +447,119 @@ npm test -w server
 ✔ GET /api/cases/:id retrieves case with solution strictly shielded
 ✔ POST /api/cases/:id/hint returns progressive hints and handles bounds
 ✔ POST /api/cases/:id/solve evaluates correct accusation and calculates 100 score
+✔ POST /api/cases/:id/solve prevents score inflation on duplicate evidence IDs
+✔ validateGeneratedCase enforces timeline ordering and normalizes dash punctuation
+✔ generateNoirAvatarSvg produces valid SVG data URI with initials
+✔ generateProceduralForensicSvg produces rich vector schematic
+✔ generateEvidenceImage falls back cleanly to procedural SVG when AI image gen is disabled
+✔ GET /api/media serves cached evidence media files with static headers
 ✔ POST /api/cases/:id/evidence/:evidenceId/generate-image handles on-demand generation
 ✔ POST /api/cases/:id/interrogate handles valid suspect inquiry and shields solution
+✔ POST /api/cases/:id/suspects/:suspectId/interrogate supports REST path parameter
+✔ client API configuration and media URL resolution logic
 ✔ generateEvidenceImage with Cloudflare FLUX.1 Schnell generates and saves real photograph
 ✔ isAllowedUrl validates relative /api/media/ video paths and rejects malicious schemes
 ✔ getFfmpegPath returns an existing binary on the system
 ✔ POST /api/cases/:id/cctv/:evidenceId/generate-video synthesizes a genuine CCTV MP4 video
 ✔ generateCctvVideo reuses existing video without re-rendering when force is false
 
-ℹ tests 35 | pass 35 | fail 0
+ℹ tests 41 | pass 41 | fail 0
 ```
 
-### Validate Production Builds
-
+### Build for Production
 ```bash
+# Build both server and client workspaces
 npm run build
+
+# Or build workspaces individually
+npm run build -w server
+npm run build -w client
 ```
-Compiles both the backend TypeScript bundle (`tsc`) and the frontend production bundle (`tsc -b && vite build`).
+
+---
+
+## Deployment Guide
+
+### Backend on Render
+
+The backend is deployed as a Node Web Service using the repository's root npm workspace configuration.
+
+1. **Create Web Service:** Connect your GitHub repository to [Render](https://render.com/).
+2. **Configure Settings:**
+   * **Environment:** `Node`
+   * **Root Directory:** *(Leave blank or set to `.` to use repository root)*
+   * **Build Command:** `npm ci && npm run build -w server`
+   * **Start Command:** `npm run start -w server`
+3. **Configure Environment Variables in Render Dashboard:**
+   * `NODE_ENV`: `production`
+   * `MONGODB_URI`: Your MongoDB Atlas connection URI.
+   * `GEMINI_API_KEY`: Your Google Gemini API key.
+   * `CLOUDFLARE_ACCOUNT_ID` & `CLOUDFLARE_API_TOKEN`: If using FLUX.1 image generation.
+   * `ENABLE_AI_IMAGE_GEN`: `true` (or `false` for instant procedural SVGs).
+
+---
+
+### Frontend on Vercel
+
+The frontend is deployed on [Vercel](https://vercel.com/) as a static Single Page Application built by Vite.
+
+1. **Import Project:** Select your GitHub repository in Vercel.
+2. **Configure Project Settings:**
+   * **Framework Preset:** `Vite`
+   * **Root Directory:** Click **Edit** and choose `client`
+   * **Build Command:** `npm run build`
+   * **Output Directory:** `dist`
+3. **Configure Environment Variables in Vercel Dashboard:**
+   * **Key:** `VITE_API_BASE_URL`
+   * **Value:** `https://ai-mystery-room-msfn.onrender.com/api`
+4. **Deploy:** Click **Deploy**.
+
+> [!IMPORTANT]
+> Because Vite embeds environment variables into the static bundle during compilation, updating `VITE_API_BASE_URL` in the Vercel dashboard requires triggering a new deployment (**Redeploy**) for changes to take effect.
 
 ---
 
 ## Troubleshooting
 
-### 1. Port 5000 is already in use
-If another process is using port 5000, specify a different port in `server/.env`:
-```env
-PORT=5001
-```
-And adjust `VITE_API_BASE_URL=http://localhost:5001/api` accordingly. On Windows PowerShell, you can terminate the blocking process using:
-```powershell
-Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Process -Force
-```
+### 1. Frontend cannot connect to Backend (CORS / Network Error)
+- Verify the backend is live by opening [https://ai-mystery-room-msfn.onrender.com/api/health](https://ai-mystery-room-msfn.onrender.com/api/health) in your browser.
+- Free Render instances sleep when inactive; allow 30–50 seconds for cold starts.
+- Ensure `VITE_API_BASE_URL` in Vercel matches your Render backend URL with `/api` appended (e.g. `https://ai-mystery-room-msfn.onrender.com/api`).
 
-### 2. MongoDB connection refused
-If MongoDB is not installed or running locally, **do not worry**: the server automatically falls back to an in-memory memory store. All features (including generating and solving cases) will function normally for the duration of the server session.
+### 2. Port 5000 is already in use locally
+- On Windows PowerShell, find and stop the process using:
+  ```powershell
+  Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Process -Force
+  ```
+- Alternatively, set `PORT=5001` in `server/.env` and update `VITE_API_BASE_URL=http://localhost:5001/api`.
 
-### 3. Missing or invalid Gemini API Key
-If `GEMINI_API_KEY` is empty or invalid, case generation and suspect interrogation will return a user-friendly error. The built-in demo mystery (*The Case of the Vault Breach*) will remain fully playable offline.
+### 3. MongoDB connection warnings
+- If you see `MONGODB_URI not set; using in-memory case repository`, the server is running normally with an in-memory database map.
+- To persist cases permanently across restarts, configure a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster and provide the URI in `server/.env`.
 
-### 4. Cloudflare Workers AI returned 400 (NSFW filter or rate limit)
-Cloudflare's FLUX.1 Schnell model enforces a strict content moderation filter. If a prompt triggers the filter or your Cloudflare credentials expire, the application automatically and gracefully falls back to Pollinations or procedural SVG schematics without interrupting gameplay.
+### 4. Gemini API errors (DEADLINE_EXCEEDED / 504 / 503)
+- Interrogation requests feature an extended 45-second timeout and retry policy. If upstream Gemini response times spike or rate limits are reached, the API returns a friendly 429/503 message prompting the player to wait briefly and ask again.
 
-### 5. FFmpeg execution errors
-Stage 1 video generation uses the bundled binary from `@ffmpeg-installer/ffmpeg` located in `node_modules`. No global system FFmpeg installation or `PATH` variable modification is necessary.
+### 5. Cloudflare Workers AI 400 (Moderation Filter)
+- Cloudflare FLUX.1 Schnell enforces content safety filters. If a crime prompt triggers moderation, the server automatically catches the error and falls back to Pollinations or procedural SVG schematics without interrupting the investigation.
 
 ---
 
 ## Security and Solution Shielding
 
-1. **Strict Solution Shielding:** The case solution (true culprit, exact motive, secret mechanism) is never delivered to the client during active gameplay. All `GET /api/cases/:id` responses pass through a sanitization filter that strips the `solution` block.
-2. **Interrogation Guardrails:** Suspect prompts include strict system instructions preventing the language model from leaking confidential case details or confessing unless challenged with conclusive evidence.
-3. **No Frontend Secrets:** All API keys (Gemini, Cloudflare, Pollinations) are stored on the server. The Vite frontend never bundles or receives secret keys.
-4. **Path Traversal Protection:** The media streamer only serves files from `server/data/media/` and rejects arbitrary filesystem paths.
+1. **Zero Client-Side Solution Leaks:** Public case queries (`GET /api/cases/:id`) execute through a server-side sanitizer that removes the `solution` object and culprit ID. Players cannot discover the culprit by inspecting network requests or local storage.
+2. **Interrogation Prompt Shielding:** Suspect LLM prompts use strict instructions that forbid revealing secret details, admitting guilt prematurely, or breaking character.
+3. **Server-Side Secret Isolation:** All sensitive credentials (`GEMINI_API_KEY`, `MONGODB_URI`, `CLOUDFLARE_API_TOKEN`) are held exclusively on the server. The client bundle contains zero private keys.
+4. **Input Sanitization:** User inquiries and mystery prompts pass through Zod validation schemas that enforce string bounds and reject malicious payloads.
 
 ---
 
 ## Future Improvements
 
-- **Stage 2 AI Video Generation:** Integration of an open image-to-video AI model for genuine character movement and temporal animations.
-- **Voice Interrogation:** Browser-based speech-to-text and text-to-speech suspect interactions.
-- **Multiplayer Co-Op:** Shared detective room where multiple investigators inspect clues and vote on accusations simultaneously.
-- **More Mystery Themes:** Cyber-heists, Victorian murder mysteries, espionage, and cold cases.
+* [ ] **Stage 2 AI Video Generation:** Integration of an open image-to-video AI model for genuine temporal character motion and ambient physics.
+* [ ] **Audio Interrogation:** Browser-based speech-to-text input and voice acting synthesis for suspects.
+* [ ] **Multiplayer Co-Op:** Real-time investigative rooms with shared evidence pinning and collaborative accusations.
+* [ ] **Expanded Settings:** Noir detective periods, cyberpunk heists, Victorian whodunits, and cold-case files.
 
 ---
 
@@ -451,21 +568,14 @@ Stage 1 video generation uses the bundled binary from `@ffmpeg-installer/ffmpeg`
 Contributions, bug reports, and suggestions are welcome!
 
 1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/my-new-feature`.
-3. Commit your changes: `git commit -m "feat: add new feature"`.
-4. Ensure all tests pass: `npm test`.
-5. Push to the branch: `git push origin feature/my-new-feature`.
-6. Open a Pull Request.
+2. Create a feature branch: `git checkout -b feature/your-feature-name`.
+3. Commit your changes: `git commit -m "feat: describe your change"`.
+4. Run tests to confirm everything passes: `npm test`.
+5. Push to your branch: `git push origin feature/your-feature-name`.
+6. Open a Pull Request on GitHub.
 
 ---
 
 ## License
 
-No license has been specified for this project yet. All rights are reserved by the repository owner.
-
----
-
-## Author and Repository
-
-- **GitHub Repository:** [https://github.com/sonuprasad100e-eng/AI-Mystery-Room.git](https://github.com/sonuprasad100e-eng/AI-Mystery-Room.git)
-- **Author:** [sonuprasad100e-eng](https://github.com/sonuprasad100e-eng)
+No open-source license has been specified for this project yet. All rights are reserved by the repository owner.
