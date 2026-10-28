@@ -61,10 +61,14 @@ The project is deployed across two independent cloud environments:
 
 ### 1. AI-Generated Mystery Cases
 - Creates unique, multifaceted crime mysteries on demand based on custom scenarios and selectable difficulty levels (`easy`, `medium`, `hard`).
+- Enforces strict difficulty-specific quotas:
+  - **Easy:** 3 suspects, 5 clues, 2 hints (Base: 100 pts)
+  - **Medium:** 4 suspects, 7 clues, 3 hints (Base: 150 pts)
+  - **Hard:** 5 suspects, 9 clues, 3 hints (Base: 200 pts)
 - Powered by Google Gemini (`gemini-3.5-flash-lite`) via the official `@google/genai` SDK.
 - Automatically generates culturally grounded characters, alibis, motives, chronological incident timelines, physical evidence items, and hidden culprit contradictions.
 - Enforces strict chronological validation and schema integrity with Zod before saving to the database.
-- Includes a pre-seeded offline demo case (*The Case of the Vault Breach*) that is immediately playable without external API keys.
+- Includes a pre-seeded offline demo case (*The Vanishing at Haveli Roy*) that is immediately playable without external API keys.
 
 ### 2. Live Suspect Interrogation
 - Chat directly with persons of interest in an interactive conversational terminal.
@@ -85,9 +89,31 @@ The project is deployed across two independent cloud environments:
 ### 5. Context-Aware Progressive Hints
 - 3-tier progressive hint engine that provides gentle investigative nudges when stuck without revealing the perpetrator.
 
-### 6. Accusation Engine & Investigation Scoring
+### 6. Clue Discovery & Investigation Progress
+- Interactive clue discovery system tracking discovered vs undiscovered clues in the Evidence Locker.
+- Real-time progress bar updating discovered clues count, hint penalties, and estimated score tally.
+- Backend-controlled state ensures points are awarded accurately and prevents duplicate inflation.
+
+### 7. Comprehensive 7-Section Investigation Report
+- Generates a full forensic case dossier (`GET /api/cases/:id/report`) containing:
+  1. **Case Summary:** Title, difficulty, status, and premise narrative.
+  2. **Investigation Progress:** Discovered clues count, hints used, and live score tally.
+  3. **Discovered Clues & Forensic Exhibits:** Detailed inventory of analyzed physical clues and media items.
+  4. **Suspect Interrogation Statements:** Verified interrogation question-and-answer transcripts.
+  5. **Key Contradictions:** Logically supported alibi flaws grounded in physical evidence.
+  6. **Final Accusation & Verdict:** Accused suspect ID, submission timestamp, and outcome (or pending status if active).
+  7. **Case Explanation & Reconstruction:** Shielded during active investigation; revealed upon accusation.
+- Printable and downloadable modal view directly within the investigator dashboard.
+
+### 8. Accusation Engine & Strict Backend Scoring
 - Accuse any suspect and link corroborating evidence IDs from your pinned evidence list.
-- Calculates an investigative score from **0 to 100** based on perpetrator identification and evidence relevance.
+- **Backend-Controlled Scoring Formula:**
+  $$\text{Score} = \max(0, \text{difficultyBasePoints} + \text{discoveredClues} \times 5 - \text{hintsUsed} \times 10)$$
+  - Base points: Easy = 100, Medium = 150, Hard = 200 (awarded only on correct accusation; 0 on incorrect accusation).
+  - Discovered clues bonus: +5 points each.
+  - Hint penalty: -10 points each.
+  - Floor: Minimum 0 points.
+  - Duplicate accusation protection prevents score inflation or repeated submissions.
 - Securely reveals the complete case reconstruction, weapon, method, and culprit motive only after an accusation has been logged.
 
 ---
@@ -372,7 +398,7 @@ All routes are prefixed with `/api` and return JSON responses.
   - **Description:** Retrieves the full case file by ID.
   - **Security:** Secret solution fields (`culpritSuspectId`, `solution`, `fullReconstruction`) are automatically stripped before sending.
 
-### 3. Investigation, Interrogation & Hints
+### 3. Investigation, Interrogation, Clues & Hints
 - **`POST /api/cases/:id/interrogate`** (or `POST /api/cases/:id/suspects/:suspectId/interrogate`)
   - **Description:** Questions a suspect in character via Gemini AI.
   - **Payload:**
@@ -390,11 +416,29 @@ All routes are prefixed with `/api` and return JSON responses.
       "answer": "I was taking inventory in the back office. The security logs can prove it."
     }
     ```
+- **`POST /api/cases/:id/clues/:clueId/discover`** (or `POST /api/cases/:id/discover-clue`)
+  - **Description:** Marks a clue as discovered by the investigator and awards +5 score points.
+  - **Payload:** `{ "clueId": "clue_01" }`
+  - **Sample Response:**
+    ```json
+    {
+      "clueId": "clue_01",
+      "discovered": true,
+      "progress": {
+        "discoveredCluesCount": 1,
+        "totalCluesCount": 7,
+        "hintsUsed": 0,
+        "score": 155
+      }
+    }
+    ```
 - **`POST /api/cases/:id/hint`**
-  - **Description:** Retrieves progressive hints (steps 1, 2, or 3).
+  - **Description:** Retrieves progressive hints (steps 1, 2, or 3) and records a -10 point hint penalty. Shields culprit identity.
   - **Payload:** `{ "step": 1 }`
+- **`GET /api/cases/:id/report`**
+  - **Description:** Generates the complete 7-section investigation dossier. Shields solution for active cases.
 - **`POST /api/cases/:id/solve`**
-  - **Description:** Submits the player's final accusation.
+  - **Description:** Submits the player's final accusation and computes backend-controlled score: `max(0, base + clues*5 - hints*10)`.
   - **Payload:**
     ```json
     {
@@ -406,7 +450,7 @@ All routes are prefixed with `/api` and return JSON responses.
     ```json
     {
       "correct": true,
-      "score": 100,
+      "score": 155,
       "culpritSuspectId": "suspect_1",
       "solution": {
         "motive": "...",
