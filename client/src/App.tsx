@@ -5,8 +5,7 @@ import {
   LoaderCircle, MessageCircle, MessageSquareQuote, Pause, Play, RefreshCw, RotateCcw, Search, Send, Shield, Skull, Sparkles, Target, X,
 } from 'lucide-react';
 import type { MysteryCase, Suspect } from './types/mystery';
-
-const API = '/api';
+import { API_BASE_URL as API, resolveMediaUrl } from './config/api';
 type Page = 'home' | 'room' | 'archive';
 type Summary = {
   id: string; title: string; caseNumber: string; crimeType: string;
@@ -851,7 +850,7 @@ function CctvEvidence({
     setGenerating(true);
     setGenError(null);
     try {
-      const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}/cctv/${encodeURIComponent(currentCamera.evidenceId)}/generate-video`, {
+      const res = await fetch(`${API}/cases/${encodeURIComponent(caseId)}/cctv/${encodeURIComponent(currentCamera.evidenceId)}/generate-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ force }),
@@ -1369,17 +1368,18 @@ function Portrait({ src, name }: { src: string; name: string }) {
 }
 
 function ImageWithFallback({ src, alt, label, variant }: { src: string; alt: string; label: string; variant: string }) {
-  const [failed, setFailed] = useState(!src);
-  const [loading, setImageLoading] = useState(Boolean(src) && !src.startsWith('data:image/'));
+  const resolvedSrc = resolveMediaUrl(src);
+  const [failed, setFailed] = useState(!resolvedSrc);
+  const [loading, setImageLoading] = useState(Boolean(resolvedSrc) && !resolvedSrc.startsWith('data:image/'));
   useEffect(() => {
-    const unavailable = !src;
+    const unavailable = !resolvedSrc;
     setFailed(unavailable);
-    setImageLoading(!unavailable && !src.startsWith('data:image/'));
-  }, [src]);
+    setImageLoading(!unavailable && !resolvedSrc.startsWith('data:image/'));
+  }, [resolvedSrc]);
 
   return (
     <div className={`image-fallback ${variant} ${failed ? 'fallback-active' : ''}`}>
-      {!failed && <img src={src} alt={alt} loading="lazy" onLoad={() => setImageLoading(false)} onError={() => { setFailed(true); setImageLoading(false); }} />}
+      {!failed && <img src={resolvedSrc} alt={alt} loading="lazy" onLoad={() => setImageLoading(false)} onError={() => { setFailed(true); setImageLoading(false); }} />}
       {loading && <div className="media-loading" role="status"><LoaderCircle className="spin" size={20} /><span>Loading exhibit…</span></div>}
       {failed && (
         <div className="media-unavailable">
@@ -1394,10 +1394,11 @@ function ImageWithFallback({ src, alt, label, variant }: { src: string; alt: str
 }
 
 function VideoWithFallback({ src, label }: { src: string; label: string }) {
+  const resolvedSrc = resolveMediaUrl(src);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+  useEffect(() => setFailed(false), [resolvedSrc]);
   if (failed) return <div className="video-unavailable" role="status"><Clapperboard size={24} /><b>VIDEO COULD NOT BE LOADED</b><span>{label}</span></div>;
-  return <video className="cctv-video" src={src} controls preload="metadata" aria-label={`${label} footage`} onError={() => setFailed(true)} />;
+  return <video className="cctv-video" src={resolvedSrc} controls preload="metadata" aria-label={`${label} footage`} onError={() => setFailed(true)} />;
 }
 
 function PinAction({ id, pinned, onTogglePin }: { id: string; pinned: string[]; onTogglePin: (id: string) => void }) {
