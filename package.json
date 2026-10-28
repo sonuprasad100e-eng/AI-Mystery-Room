@@ -13,7 +13,6 @@
     "test": "npm run test -w server"
   },
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.65.1",
     "concurrently": "^9.0.0"
   },
   "dependencies": {

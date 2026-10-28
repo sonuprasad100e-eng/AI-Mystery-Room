@@ -382,7 +382,7 @@ Your answer (in simple English, 1-3 sentences):`;
   try {
     const ai = new GoogleGenAI({
       apiKey: env.geminiKey,
-      httpOptions: { timeout: 14 * 1000, retryOptions: { attempts: 2 } },
+      httpOptions: { timeout: 45 * 1000, retryOptions: { attempts: 2 } },
     });
 
     const result = await ai.models.generateContent({
