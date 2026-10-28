@@ -7,17 +7,18 @@ import { CaseModel } from './models/Case.model.js';
 import {
   CaseGenerationError,
   createCase,
+  discoverClue,
+  generateInvestigationReport,
   getCase,
+  getHint,
+  interrogateSuspect,
   listCases,
   sanitize,
   solveCase,
-  getHint,
-  interrogateSuspect,
 } from './services/case.service.js';
 import { generateSchema, solveSchema, interrogateSchema } from './schemas/case.schema.js';
 import { MEDIA_DIR, generateEvidenceImage } from './services/image.service.js';
 import { generateCctvVideo } from './services/video.service.js';
-
 
 export const app = express();
 app.use(cors());
@@ -68,7 +69,7 @@ app.get('/api/cases/:id', async (req, res, next) => {
 app.post('/api/cases/:id/solve', async (req, res, next) => {
   try {
     const body = solveSchema.parse(req.body);
-    const result = await solveCase(req.params.id, body.suspectId, body.selectedEvidenceIds);
+    const result = await solveCase(req.params.id, body.suspectId, body.selectedEvidenceIds, body.reasoning);
     if (!result) return res.status(404).json({ error: 'Case not found' });
     res.json(result);
   } catch (e) {
@@ -86,6 +87,52 @@ app.post('/api/cases/:id/hint', async (req, res, next) => {
   }
 });
 
+// Clue discovery endpoints
+app.post('/api/cases/:id/clues/:clueId/discover', async (req, res, next) => {
+  try {
+    const result = await discoverClue(req.params.id, req.params.clueId);
+    if (!result) return res.status(404).json({ error: 'Case not found' });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/api/cases/:id/discover-clue', async (req, res, next) => {
+  try {
+    const clueId = req.body?.clueId;
+    if (!clueId || typeof clueId !== 'string') {
+      return res.status(400).json({ error: 'A valid clueId string is required.' });
+    }
+    const result = await discoverClue(req.params.id, clueId.trim());
+    if (!result) return res.status(404).json({ error: 'Case not found' });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Investigation report endpoints
+app.get('/api/cases/:id/report', async (req, res, next) => {
+  try {
+    const report = await generateInvestigationReport(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Case not found' });
+    res.json({ report });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/api/cases/:id/report', async (req, res, next) => {
+  try {
+    const report = await generateInvestigationReport(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Case not found' });
+    res.json({ report });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Endpoint to generate or regenerate an AI photograph for a specific forensic exhibit
 app.post('/api/cases/:id/evidence/:evidenceId/generate-image', async (req, res, next) => {
   try {
@@ -97,7 +144,7 @@ app.post('/api/cases/:id/evidence/:evidenceId/generate-image', async (req, res, 
     const result = await generateEvidenceImage(photo, c.setting, true);
     photo.imageUrl = result.imageUrl;
 
-    if (mongoReady) {
+    if (mongoReady && c.save) {
       await c.save();
     }
     res.json({
@@ -124,7 +171,7 @@ app.post('/api/cases/:id/cctv/:evidenceId/generate-video', async (req, res, next
     const result = await generateCctvVideo(c, req.params.evidenceId, force);
 
     recording.videoUrl = result.videoUrl;
-    if (mongoReady) {
+    if (mongoReady && c.save) {
       await c.save();
     }
 
@@ -134,13 +181,13 @@ app.post('/api/cases/:id/cctv/:evidenceId/generate-video', async (req, res, next
       videoUrl: result.videoUrl,
       durationSeconds: result.durationSeconds,
       isAiGenerated: result.isAiGenerated,
+      isSynthesizedCctv: true,
       provider: result.provider,
     });
   } catch (e) {
     next(e);
   }
 });
-
 
 // Endpoints to interrogate a suspect using AI
 app.post('/api/cases/:id/interrogate', async (req, res, next) => {
@@ -187,9 +234,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   const isDev = env.nodeEnv === 'development';
   console.error('[server error]', err instanceof Error ? err.stack || err.message : err);
   return res.status(500).json({
-    error: isDev && typeof err?.message === 'string'
-      ? err.message.slice(0, 300)
-      : 'An unexpected internal error occurred on the server.',
+    error:
+      isDev && typeof err?.message === 'string'
+        ? err.message.slice(0, 300)
+        : 'An unexpected internal error occurred on the server.',
   });
 });
 
@@ -208,7 +256,7 @@ export async function startServer() {
 // Start if run directly as application entry point
 const isDirectRun = Boolean(
   process.argv[1] &&
-  (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'))
+    (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'))
 );
 
 if (isDirectRun) {

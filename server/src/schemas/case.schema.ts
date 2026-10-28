@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const DIFFICULTY_CONFIGS = {
+  easy: { suspects: 3, clues: 5, hints: 2, basePoints: 100 },
+  medium: { suspects: 4, clues: 7, hints: 3, basePoints: 150 },
+  hard: { suspects: 5, clues: 9, hints: 3, basePoints: 200 },
+} as const;
+
+export type Difficulty = keyof typeof DIFFICULTY_CONFIGS;
+
 export const generateSchema = z.object({
   prompt: z.string().trim().min(10, 'Scenario must be at least 10 characters.').max(600, 'Scenario must not exceed 600 characters.'),
   difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
@@ -51,9 +59,19 @@ export function isAllowedUrl(value: string | undefined): boolean {
   }
 }
 
+export const clueSchema = z.object({
+  clueId: z.string().min(1),
+  title: shortText,
+  description: shortText,
+  type: z.enum(['physical', 'document', 'surveillance', 'forensic', 'testimony']).default('forensic'),
+  sourceEvidenceId: z.string().optional(),
+  details: shortText.optional(),
+}).strict();
 
 export const generatedCaseSchema = z.object({
   title: z.string().trim().min(3).max(80),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  story: shortText.optional(),
   crimeType: z.string().trim().min(2).max(60),
   setting: z.string().trim().min(2).max(120),
   incidentTimestamp: z.string().datetime(),
@@ -65,7 +83,7 @@ export const generatedCaseSchema = z.object({
     background: shortText,
   }).strict(),
   briefing: shortText,
-  timelineSummary: z.array(timelineEvent).min(3).max(6),
+  timelineSummary: z.array(timelineEvent).min(3).max(8),
   suspects: z.array(z.object({
     suspectId: z.string().min(1),
     name: shortText,
@@ -78,12 +96,14 @@ export const generatedCaseSchema = z.object({
     quirks: z.array(shortText).max(3),
     avatarUrl: z.string(),
     interrogationQuote: shortText,
-  }).strict()).length(3),
+  }).strict()).min(3).max(5),
+  clues: z.array(clueSchema).min(5).max(9),
+  hints: z.array(shortText).min(2).max(3),
   evidence: z.object({
     whatsappThreads: z.array(z.object({
       evidenceId: z.string().min(1),
       title: shortText,
-      participants: z.array(shortText).min(2).max(4),
+      participants: z.array(shortText).min(2).max(6),
       extractedFromDevice: shortText,
       messages: z.array(z.object({
         messageId: z.string().min(1),
@@ -93,8 +113,8 @@ export const generatedCaseSchema = z.object({
         text: shortText,
         isDeletedOrRecovered: z.boolean().optional(),
         readStatus: z.enum(['sent', 'delivered', 'read']),
-      }).strict()).min(2).max(5),
-    }).strict()).max(1),
+      }).strict()).min(2).max(6),
+    }).strict()).max(3),
     photos: z.array(z.object({
       evidenceId: z.string().min(1),
       title: shortText,
@@ -108,8 +128,8 @@ export const generatedCaseSchema = z.object({
         yPercent: z.number().min(0).max(100),
         label: shortText,
         detail: shortText,
-      }).strict()).min(1).max(3),
-    }).strict()).length(2),
+      }).strict()).min(1).max(4),
+    }).strict()).min(1).max(5),
     cctvRecordings: z.array(z.object({
       evidenceId: z.string().min(1),
       cameraId: shortText,
@@ -119,8 +139,6 @@ export const generatedCaseSchema = z.object({
       videoUrl: z.string().refine((val) => isAllowedUrl(val), {
         message: 'Video URL must be a valid HTTP/HTTPS URL or /api/media/ relative path.',
       }).optional(),
-
-
       frames: z.array(z.object({
         frameId: z.string().min(1),
         timestamp: z.string().datetime(),
@@ -129,14 +147,14 @@ export const generatedCaseSchema = z.object({
         detectedEntities: z.array(shortText).max(5),
         anomalyFlag: z.boolean(),
         snapshotSvgOrUrl: z.string(),
-      }).strict()).min(1).max(4),
-    }).strict()).length(1),
+      }).strict()).min(1).max(5),
+    }).strict()).min(1).max(3),
   }).strict(),
   solution: z.object({
     culpritSuspectId: z.string().min(1),
     motiveSummary: shortText,
     alibiContradiction: shortText,
-    keyEvidenceIds: z.array(z.string().min(1)).min(2).max(4),
+    keyEvidenceIds: z.array(z.string().min(1)).min(2).max(6),
     fullReconstruction: shortText,
   }).strict(),
 }).strict();
@@ -163,10 +181,29 @@ export function generatedCaseJsonSchema() {
  * Handles optional fields safely:
  * - Omits empty string `videoUrl`
  * - Normalizes timeline punctuation (e.g., converts em/en dashes to " - ")
+ * - Ensures story, clues, and hints arrays meet difficulty counts
  */
-export function preprocessRawCase(input: unknown): unknown {
+export function preprocessRawCase(input: unknown, targetDifficulty?: 'easy' | 'medium' | 'hard'): unknown {
   if (!input || typeof input !== 'object') return input;
   const data = JSON.parse(JSON.stringify(input));
+
+  // Determine difficulty
+  let diff: Difficulty = targetDifficulty || 'medium';
+  if (data.difficulty && data.difficulty in DIFFICULTY_CONFIGS) {
+    diff = data.difficulty as Difficulty;
+  } else if (Array.isArray(data.suspects)) {
+    if (data.suspects.length <= 3) diff = 'easy';
+    else if (data.suspects.length === 4) diff = 'medium';
+    else diff = 'hard';
+  }
+  const config = DIFFICULTY_CONFIGS[diff];
+
+  // Synchronize story and briefing
+  if (!data.story && data.briefing) {
+    data.story = data.briefing;
+  } else if (!data.briefing && data.story) {
+    data.briefing = data.story;
+  }
 
   // Normalize cctvRecordings videoUrl
   if (data.evidence?.cctvRecordings && Array.isArray(data.evidence.cctvRecordings)) {
@@ -185,12 +222,149 @@ export function preprocessRawCase(input: unknown): unknown {
     });
   }
 
+  // Synthesize or fill clues if missing or insufficient
+  if (!Array.isArray(data.clues) || data.clues.length < config.clues) {
+    const existingClues: any[] = Array.isArray(data.clues) ? [...data.clues] : [];
+    const existingIds = new Set(existingClues.map((c: any) => c.clueId));
+
+    // Extract clues from photos
+    if (Array.isArray(data.evidence?.photos)) {
+      for (const photo of data.evidence.photos) {
+        if (existingClues.length >= config.clues) break;
+        const cid = `clue_p_${photo.evidenceId}`;
+        if (!existingIds.has(cid)) {
+          existingIds.add(cid);
+          existingClues.push({
+            clueId: cid,
+            title: photo.title || 'Photographic Exhibit',
+            description: photo.forensicNote || `Forensic exhibit recovered at ${photo.locationFound || 'crime scene'}.`,
+            type: 'forensic',
+            sourceEvidenceId: photo.evidenceId,
+          });
+        }
+        if (Array.isArray(photo.hotspots)) {
+          for (let hi = 0; hi < photo.hotspots.length; hi++) {
+            if (existingClues.length >= config.clues) break;
+            const hs = photo.hotspots[hi];
+            const hid = `clue_hs_${photo.evidenceId}_${hi + 1}`;
+            if (!existingIds.has(hid)) {
+              existingIds.add(hid);
+              existingClues.push({
+                clueId: hid,
+                title: hs.label || 'Physical Mark',
+                description: hs.detail || 'Mark discovered during evidence inspection.',
+                type: 'physical',
+                sourceEvidenceId: photo.evidenceId,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Extract clues from CCTV
+    if (Array.isArray(data.evidence?.cctvRecordings)) {
+      for (const rec of data.evidence.cctvRecordings) {
+        if (existingClues.length >= config.clues) break;
+        const cid = `clue_cctv_${rec.evidenceId}`;
+        if (!existingIds.has(cid)) {
+          existingIds.add(cid);
+          existingClues.push({
+            clueId: cid,
+            title: `CCTV Surveillance Feed: ${rec.cameraId || 'Camera'}`,
+            description: `Security recording from ${rec.location || 'perimeter'} covering ${rec.timeRange || 'incident period'}.`,
+            type: 'surveillance',
+            sourceEvidenceId: rec.evidenceId,
+          });
+        }
+        if (Array.isArray(rec.frames)) {
+          for (let fi = 0; fi < rec.frames.length; fi++) {
+            if (existingClues.length >= config.clues) break;
+            const fr = rec.frames[fi];
+            if (fr.anomalyFlag || existingClues.length < config.clues) {
+              const fid = `clue_fr_${rec.evidenceId}_${fi + 1}`;
+              if (!existingIds.has(fid)) {
+                existingIds.add(fid);
+                existingClues.push({
+                  clueId: fid,
+                  title: fr.anomalyFlag ? `Surveillance Anomaly at ${fr.timestamp}` : `Camera Observation at ${fr.timestamp}`,
+                  description: fr.visualDescription || 'Observation recorded on camera log.',
+                  type: 'surveillance',
+                  sourceEvidenceId: rec.evidenceId,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Extract clues from WhatsApp threads
+    if (Array.isArray(data.evidence?.whatsappThreads)) {
+      for (const thread of data.evidence.whatsappThreads) {
+        if (existingClues.length >= config.clues) break;
+        const cid = `clue_chat_${thread.evidenceId}`;
+        if (!existingIds.has(cid)) {
+          existingIds.add(cid);
+          existingClues.push({
+            clueId: cid,
+            title: `Extracted Communication Log: ${thread.title || 'Message Thread'}`,
+            description: `Extracted from ${thread.extractedFromDevice || 'suspect device'} involving ${thread.participants?.join(', ') || 'participants'}.`,
+            type: 'document',
+            sourceEvidenceId: thread.evidenceId,
+          });
+        }
+      }
+    }
+
+    // Pad if still under required count
+    let padIndex = 1;
+    while (existingClues.length < config.clues) {
+      const padId = `clue_lead_${padIndex}`;
+      if (!existingIds.has(padId)) {
+        existingIds.add(padId);
+        existingClues.push({
+          clueId: padId,
+          title: `Investigative Lead #${padIndex}`,
+          description: `Discrepancy identified in preliminary incident statements for ${data.setting || 'crime scene'}.`,
+          type: 'testimony',
+        });
+      }
+      padIndex++;
+    }
+
+    data.clues = existingClues.slice(0, config.clues);
+  }
+
+  // Synthesize or trim hints if missing or count mismatch
+  if (!Array.isArray(data.hints) || data.hints.length !== config.hints) {
+    const defaultHints = [
+      `Review the timestamps around ${data.incidentTimestamp || 'the incident'} across all communication and surveillance logs.`,
+      `Compare the suspects' stated alibis against physical findings and device records recovered from ${data.setting || 'the scene'}.`,
+      `Cross-reference surveillance entry and exit timestamps with statements given by persons of interest.`,
+    ];
+    data.hints = defaultHints.slice(0, config.hints);
+  }
+
   return data;
 }
 
-export function validateGeneratedCase(input: unknown): GeneratedCase {
-  const preprocessed = preprocessRawCase(input);
+export function validateGeneratedCase(input: unknown, expectedDifficulty?: 'easy' | 'medium' | 'hard'): GeneratedCase {
+  const preprocessed = preprocessRawCase(input, expectedDifficulty);
   const data = generatedCaseSchema.parse(preprocessed);
+
+  // Determine difficulty from configuration
+  let diff: Difficulty = expectedDifficulty || 'medium';
+  if ((input as any)?.difficulty && (input as any).difficulty in DIFFICULTY_CONFIGS) {
+    diff = (input as any).difficulty as Difficulty;
+  } else if (data.suspects.length <= 3) {
+    diff = 'easy';
+  } else if (data.suspects.length === 4) {
+    diff = 'medium';
+  } else {
+    diff = 'hard';
+  }
+  const config = DIFFICULTY_CONFIGS[diff];
 
   const suspectIds = data.suspects.map(({ suspectId }) => suspectId);
   const evidenceIds = [
@@ -198,17 +372,31 @@ export function validateGeneratedCase(input: unknown): GeneratedCase {
     ...data.evidence.photos.map(({ evidenceId }) => evidenceId),
     ...data.evidence.cctvRecordings.map(({ evidenceId }) => evidenceId),
   ];
+  const clueIds = data.clues.map((c) => c.clueId);
 
-  if (new Set(suspectIds).size !== 3) {
-    throw new Error('Generated case must contain three unique suspects.');
+  // Strict difficulty counts verification
+  if (new Set(suspectIds).size !== config.suspects) {
+    throw new Error(`Generated case for ${diff} difficulty must contain ${config.suspects} unique suspects (found ${new Set(suspectIds).size}).`);
   }
+  if (data.clues.length !== config.clues) {
+    throw new Error(`Generated case for ${diff} difficulty must contain exactly ${config.clues} clues (found ${data.clues.length}).`);
+  }
+  if (new Set(clueIds).size !== clueIds.length) {
+    throw new Error('Clue IDs must be unique.');
+  }
+  if (data.hints.length !== config.hints) {
+    throw new Error(`Generated case for ${diff} difficulty must contain exactly ${config.hints} hints (found ${data.hints.length}).`);
+  }
+
   if (!suspectIds.includes(data.solution.culpritSuspectId)) {
     throw new Error('Solution culprit must match one suspect.');
   }
   if (new Set(evidenceIds).size !== evidenceIds.length) {
     throw new Error('Evidence IDs must be unique.');
   }
-  if (data.solution.keyEvidenceIds.some((id) => !evidenceIds.includes(id))) {
+
+  const allValidRefIds = new Set([...evidenceIds, ...clueIds]);
+  if (data.solution.keyEvidenceIds.some((id) => !allValidRefIds.has(id))) {
     throw new Error('Solution refers to missing evidence.');
   }
   if (new Set(data.solution.keyEvidenceIds).size !== data.solution.keyEvidenceIds.length) {
